@@ -20,6 +20,8 @@ define strings for each dydt for: 1. surface, 2. sub-surface, 3. bulk, 4. core
 
 '''
 
+import numpy as np
+
 class ReactionScheme:
     '''
     Defining the reaction scheme (what reacts with what)
@@ -48,65 +50,74 @@ class ReactionScheme:
         self.checked = False
 
         
-def validate_reaction_scheme(ReactionScheme):
-    '''
-    XXX
-    '''
-    ReactionScheme.name
-    ReactionScheme.n_components
-    ReactionScheme.reaction_tuples
-    ReactionScheme.reaction_products
-    ReactionScheme.comp_names
-    ReactionScheme.checked
-    # check name value is a string 
-    try:
-        type(ReactionScheme.name) == str
-        
-    except TypeError:
-        print('The name needs to be a string')
-        
-    # check n_components = number of unique numbers in rxn & prod. tuples
-    unique_comps = set([])
-    for tup in ReactionScheme.reaction_tuples:
-        x, y = tup
-        # add component numbers to unique comps set
-        unique_comps.add(x)
-        unique_comps.add(y)
-    for tup in ReactionScheme.reaction_products:
-        x, y = tup
-        # add component numbers to unique comps set
-        unique_comps.add(x)
-        unique_comps.add(y)
-        
-    # if the number of unique components != len(unique_comps), 
-    # error - either too many or too few components, ask to check if this is
-    # correct
-    try:
-        float(ReactionScheme.n_components) == float(len(unique_comps))
-    
-    except:
-        if float(ReactionScheme.n_components) > float(len(unique_comps)):
-            diff = float(ReactionScheme.n_components) - float(len(unique_comps))
-            print(f'n_components ({ReactionScheme.n_components}) is {diff} more than the unique reactants + products provided in reaction and product list of tuples')
-        
-        if float(ReactionScheme.n_components) < float(len(unique_comps)):
-            diff = float(len(unique_comps)) - float(ReactionScheme.n_components)  
-            print(f'n_components ({ReactionScheme.n_components}) is {diff} less than the unique reactants + products provided in reaction and product list of tuples')
-        
-    # comp names should be strings
-    isstring_bool_list = []
-    for name in ReactionScheme.comp_names:
-        string_bool = name == str
-        isstring_bool_list.append(string_bool)
-        
-    try:
-        if ReactionScheme.comp_names != []:
-            False not in isstring_bool_list
+    def validate_reaction_scheme(self):
+        '''
+        XXX
+        '''
+        self.name
+        self.n_components
+        self.reaction_tuples
+        self.reaction_products
+        self.comp_names
+        self.checked
+        # check name value is a string 
+        try:
+            type(self.name) == str
             
-    except TypeError:
-        print('All component names need to be strings')
+        except TypeError:
+            print('The name needs to be a string')
+            
+        # check n_components = number of unique numbers in rxn & prod. tuples
+        unique_comps = set([])
+        for tup in self.reaction_tuples:
+            x, y = tup
+            # add component numbers to unique comps set
+            unique_comps.add(x)
+            unique_comps.add(y)
+        for tup in self.reaction_products:
+            if len(tup) == 1:
+                # add component number to unique comps set
+                # the add() method of a set will only add the number
+                # if it is unique
+                x = tup
+                unique_comps.add(x)
+                
+            else:
+                x, y = tup
+                # add component numbers to unique comps set
+                unique_comps.add(x)
+                unique_comps.add(y)
+            
+        # if the number of unique components != len(unique_comps), 
+        # error - either too many or too few components, ask to check if this is
+        # correct
+        try:
+            assert (self.n_components == len(unique_comps)) == True 
+            ##** sort this out so that the error message works**
         
-    ReactionScheme.checked = True
+        except:
+            if float(self.n_components) > float(len(unique_comps)):
+                diff = float(self.n_components) - float(len(unique_comps))
+                print(f'n_components ({self.n_components}) is {diff} more than the unique reactants + products provided in reaction and product list of tuples')
+            
+            if float(self.n_components) < float(len(unique_comps)):
+                diff = float(len(unique_comps)) - float(self.n_components)  
+                print(f'n_components ({self.n_components}) is {diff} less than the unique reactants + products provided in reaction and product list of tuples')
+            
+        # comp names should be strings
+        isstring_bool_list = []
+        for name in self.comp_names:
+            string_bool = name == str
+            isstring_bool_list.append(string_bool)
+            
+        try:
+            if self.comp_names != []:
+                False not in isstring_bool_list
+                
+        except TypeError:
+            print('All component names need to be strings')
+            
+        self.checked = True
         
         
     
@@ -116,7 +127,6 @@ class ModelComponent:
     '''
     
     def __init__(self,diff_coeff,reaction_scheme,component_number=None,name=None,react_gas=False,w=None,gas_conc=None):
-        pass
         # make strings representing surf, sub-surf, bulk and core dydt
         # dependent on reaction scheme
         # initially account for diffusion
@@ -187,9 +197,119 @@ class ModelComponent:
                 self.bulk_string += 'kbby_{}[i] * (y[{}*Lorg*{}+(i-1)] - y[{}*Lorg*{}+i]) * (A[i]/V[i]) + kbby_{}[i+1] * (y[{}*Lorg*{}+(i+1)] - y[{}*Lorg*{}+i]) * (A[i+1]/V[i]) '.format(component_number,component_number-1,component_number,
                                            component_number-1,component_number,component_number,component_number-1,component_number,component_number-1,component_number)
         
+        # add reactions
+    
+class DiffusionRegime():
+    '''
+    XXX
+    Calling this will build the diffusion regime and return a list of strings
+    defining the composition-dependent (or not) diffusion evolution for each 
+    component and the definition of kbb for each component.
+    '''
+    # vignes, obstruction, no compositional dependence
         
+    # which components have a comp dependence?
+    # for each component write definition of D as a string
+    # ouput a string which defines kbb, ksb etc (?)
+    def __init__(self,regime='vignes',diff_dict=None):
+        
+        self.regime = regime
+        self.diff_dict = diff_dict
+        self.kbb_string = '4 * Dx_b / (delta * np.pi)'
+        
+    def build_diffusion_regime(self):
+        
+        # for each component write D and kbb, kbs string
+        # Db kbb will be an array
+        # write f_y also - no, include in ModelBuilder **
+        
+        diff_dict = self.diff_dict
+        D_definition_string_list = []
+        kbb_string_list = [] # no need for this, it's the same definition
+        
+        # for each component in the diffuion evolution dictionary
+        # this dict should be the same length as the number of components
+        # in the model
+        #DO THE SAME FOR SURFACE CONCS ETC.
+        for i in np.arange(len(diff_dict)):
+            # only consider components who's diffusivities are composition-
+            # dependent
+            if diff_dict[f'{i+1}'] != None:
+                
+                # composition dependence tuple
+                compos_depend_tup = diff_dict[f'{i+1}']
+                
+                # vignes diffusion
+                if self.regime == 'vignes':
+                    # initially dependent on D_comp in pure comp
+                    # raised to the power of fraction of component
+                    Db_string = f'Db_{i+1}_arr = (D_{i+1}_arr**f_{i+1}) '
+                    
+                    # loop over depending components 
+                    for comp in compos_depend_tup:
+                        Db_string += f'* (Db_{i+1}_{comp}_arr**f_{comp}_arr) '
+                        
+                    D_definition_string_list.append(Db_string)
+                    
+                    
+                        
+                # km-sub combination
+                elif self.regime == 'fractional':
+                    # initially dependent on D_comp in pure comp
+                    # multiply by fraction of component
+                    Db_string = f'Db_{i+1}_arr = (D_{i+1}_arr * f_{i+1}) '
+                    
+                    # loop over depending components 
+                    for comp in compos_depend_tup:
+                        Db_string += f'+ (Db_{i+1}_{comp}_arr * f_{comp}_arr) '
+                        
+                    D_definition_string_list.append(Db_string)
+                    
+                    
+                # obstruction theory
+                elif self.regime == 'obstruction':
+                    # only dependent on total fraction of products
+                    sum_product_fractions = 'f_prod = '
+                    
+                    # add in fraction of each product to sum of product frac.
+                    # string
+                    for a, comp in enumerate(compos_depend_tup):
+                        if a == 0:
+                            sum_product_fractions += f'f_{comp} '
+                        else:
+                            sum_product_fractions += f'+ f_{comp} '
+                            
+                    # obstruction theory equation (Stroeve 1975)    
+                    Db_string = f'Db_{i+1}_arr = (D_{i+1}_arr * (2 - 2 * f_prod) / (2 + f_prod)'
+                    
+                    D_definition_string_list.append(Db_string)
+                    
+                # Other diffusion regimes may be added in later developments
+                
+                
+            # else there is no evolution and just Db of pure
+            # component, end of story
+            else:
+                Db_string = f'Db_{i+1}_arr = D_{i+1}_arr'
+                
+                D_definition_string_list.append(Db_string)
+            
+            
+
+# testing 123
     
-class DiffusionRegime:
-    pass
-    
-    
+init = ReactionScheme(n_components=2,
+                      reaction_tuple_list=[(1,2)],
+                      products_of_reactions_list=[(3,)])
+                      
+# something that will tell me what each component                       
+diff_dict = {'1' : None,
+             '2': (3,1),
+             '3': (4),
+             '4': (3,2),
+                 }                      
+                      
+                      
+                      
+                      
+                      
