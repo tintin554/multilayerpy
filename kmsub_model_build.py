@@ -213,18 +213,36 @@ class DiffusionRegime():
     # ouput a string which defines kbb, ksb etc (?)
     def __init__(self,regime='vignes',diff_dict=None):
         
+        # string defining the diffusion regime to use
         self.regime = regime
-        self.diff_dict = diff_dict
-        self.kbb_string = '4 * Dx_b / (delta * np.pi)'
         
-    def build_diffusion_regime(self):
+        # dictionary describing composition-dependent diffusion for each 
+        # model component
+        self.diff_dict = diff_dict
+        
+        # list of strings descibing kbb for each component
+        # movement of each component between model layers
+        self.kbb_strings = None
+        
+        # list of strings describing Db for each model component
+        self.Db_strings = None
+        
+        # list of strings describing Ds for each model component
+        self.Ds_strings = None
+        
+        # A boolean which changes to true once the diffusion regime has been 
+        # built
+        self.constructed = False
+        
+    def __call__(self):
         
         # for each component write D and kbb, kbs string
         # Db kbb will be an array
         # write f_y also - no, include in ModelBuilder **
         
         diff_dict = self.diff_dict
-        D_definition_string_list = []
+        Db_definition_string_list = []
+        Ds_definition_string_list = []
         kbb_string_list = [] # no need for this, it's the same definition
         
         # for each component in the diffuion evolution dictionary
@@ -243,13 +261,18 @@ class DiffusionRegime():
                 if self.regime == 'vignes':
                     # initially dependent on D_comp in pure comp
                     # raised to the power of fraction of component
-                    Db_string = f'Db_{i+1}_arr = (D_{i+1}_arr**f_{i+1}) '
+                    Db_string = f'Db_{i+1}_arr = (D_{i+1}_arr**f_{i+1}_arr) '
+                    
+                    Ds_string = f'Ds_{i+1} = (D_{i+1}**fs_{i+1}) '
                     
                     # loop over depending components 
                     for comp in compos_depend_tup:
                         Db_string += f'* (Db_{i+1}_{comp}_arr**f_{comp}_arr) '
                         
-                    D_definition_string_list.append(Db_string)
+                        Ds_string += f'* (Db_{i+1}_{comp}**fs_{comp}) '
+                        
+                    Db_definition_string_list.append(Db_string)
+                    Ds_definition_string_list.append(Ds_string)
                     
                     
                         
@@ -257,13 +280,18 @@ class DiffusionRegime():
                 elif self.regime == 'fractional':
                     # initially dependent on D_comp in pure comp
                     # multiply by fraction of component
-                    Db_string = f'Db_{i+1}_arr = (D_{i+1}_arr * f_{i+1}) '
+                    Db_string = f'Db_{i+1}_arr = (D_{i+1}_arr * f_{i+1}_arr) '
+                    
+                    Ds_string = f'Ds_{i+1} = (D_{i+1}**fs_{i+1}) '
                     
                     # loop over depending components 
                     for comp in compos_depend_tup:
                         Db_string += f'+ (Db_{i+1}_{comp}_arr * f_{comp}_arr) '
                         
-                    D_definition_string_list.append(Db_string)
+                        Ds_string += f'+ (Db_{i+1}_{comp} * fs_{comp}) '
+                        
+                    Db_definition_string_list.append(Db_string)
+                    Ds_definition_string_list.append(Ds_string)
                     
                     
                 # obstruction theory
@@ -282,7 +310,10 @@ class DiffusionRegime():
                     # obstruction theory equation (Stroeve 1975)    
                     Db_string = f'Db_{i+1}_arr = (D_{i+1}_arr * (2 - 2 * f_prod) / (2 + f_prod)'
                     
-                    D_definition_string_list.append(Db_string)
+                    Ds_string = f'Db_{i+1} = (D_{i+1} * (2 - 2 * fs_prod) / (2 + fs_prod)'
+                    
+                    Db_definition_string_list.append(Db_string)
+                    Ds_definition_string_list.append(Ds_string)
                     
                 # Other diffusion regimes may be added in later developments
                 
@@ -292,9 +323,38 @@ class DiffusionRegime():
             else:
                 Db_string = f'Db_{i+1}_arr = D_{i+1}_arr'
                 
-                D_definition_string_list.append(Db_string)
-            
-            
+                Db_definition_string_list.append(Db_string)
+                Ds_definition_string_list.append(Ds_string)
+        
+        
+        # update the Db_strings and Ds_strings attributes
+        self.Db_strings = Db_definition_string_list
+        
+        self.Ds_strings = Ds_definition_string_list
+        
+        # this diffusion regime is now constructed
+        self.constructed = True        
+        
+    def __str__(self):
+        '''
+        This will define what gets printed to the console when
+        print(DiffusionRegime) is called.
+        
+        Returns
+        -------
+        None.
+
+        '''
+    def savetxt(self,filename):
+        '''
+        Save the diffusion regime as a .txt file with each Db/Ds and kbb
+        definition for each component
+
+        Returns
+        -------
+        saved .txt file in current working directory
+
+        '''
 
 # testing 123
     
