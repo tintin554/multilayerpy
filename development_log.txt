@@ -1,0 +1,18 @@
+DEVELOPMENT LOG MULTI-LAYER MODEL BUILDER:
+
+-------------MODEL BUILD-------------
+- Error handling
+- better doc strings
+
+- Model component set attributes
+- ModelComponent include volatile consider
+- model component construct strings in __call__ function and add in an "offset" parameter 
+for future compartmental model implementations
+
+- Define kbb strings in DiffusionRegime
+
+- define __str__ representation in DiffusionRegime
+- DiffusionRegime.savetxt()
+
+- put in offset on i if multi-compartment model (maybe a much more "future" development)
+

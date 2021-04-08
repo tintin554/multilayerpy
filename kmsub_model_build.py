@@ -126,7 +126,8 @@ class ModelComponent:
     Model component class with information about it's role in the reaction scheme
     '''
     
-    def __init__(self,diff_coeff,reaction_scheme,component_number=None,name=None,react_gas=False,w=None,gas_conc=None):
+    def __init__(self,diff_coeff,reaction_scheme,component_number=None,
+                 name=None,react_gas=False,w=None,gas_conc=None,compartmental=False):
         # make strings representing surf, sub-surf, bulk and core dydt
         # dependent on reaction scheme
         # initially account for diffusion
@@ -152,6 +153,8 @@ class ModelComponent:
         self.delta = None # cm
         
         self.reaction_scheme = reaction_scheme
+        
+        self.compartmental = compartmental
         
         # define initial strings for each differential equation to be solved
         # remembering Python counts from 0
@@ -356,6 +359,43 @@ class DiffusionRegime():
 
         '''
 
+class ModelBuilder():
+    '''
+    An object which constructs the model file from the reaction scheme, list
+    of model components and a diffusion regime
+    '''
+    
+    def __init__(self,reaction_scheme,model_components,diffusion_regime,
+                 volume_layers,area_layers,n_layers,
+                 model_type='KM-SUB',geometry='spherical'):
+       '''
+       XXX
+       '''
+
+       self.reaction_scheme = reaction_scheme
+       
+       self.model_components = model_components
+       # check if model components in the correct order
+       
+       self.diffusion_regime = diffusion_regime # error if not dict
+       
+       self.geometry = geometry
+       
+       self.volume_layers = volume_layers
+       
+       self.area_layers = area_layers
+       
+       self.n_layers = n_layers
+       
+       self.model_type = model_type # error if not in accepted types
+       
+       # list of output strings for final file write and coupling to 
+       # compartmental models
+       self.file_string_list = []
+       
+       self.constructed = False
+    
+    
 # testing 123
     
 init = ReactionScheme(n_components=2,
