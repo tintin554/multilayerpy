@@ -95,7 +95,7 @@ class ReactionScheme:
             assert (self.n_components == len(unique_comps)) == True 
             ##** sort this out so that the error message works**
         
-        except:
+        except AssertionError:
             if float(self.n_components) > float(len(unique_comps)):
                 diff = float(self.n_components) - float(len(unique_comps))
                 print(f'n_components ({self.n_components}) is {diff} more than the unique reactants + products provided in reaction and product list of tuples')
@@ -127,7 +127,7 @@ class ModelComponent:
     '''
     
     def __init__(self,diff_coeff,reaction_scheme,component_number=None,
-                 name=None,react_gas=False,w=None,gas_conc=None,compartmental=False):
+                 name=None,react_gas=False,compartmental=False,diameter=None):
         # make strings representing surf, sub-surf, bulk and core dydt
         # dependent on reaction scheme
         # initially account for diffusion
@@ -141,16 +141,12 @@ class ModelComponent:
             self.name = 'X{}'.format(component_number)
         
         self.diff_coeff = diff_coeff # cm2 s-1
-        if react_gas == True:
-            #* error if not a number
-            self.w = w # cm s-1, rms speed of the gas molecule
-            self.gas_conc = gas_conc
         
         self.component_number = component_number
-        # if component_number == None, error
+        # if component_number == None or 0, error
         
-        # the effective molecular diameter (delta)
-        self.delta = None # cm
+        # the effective molecular diameter 
+        self.diameter = diameter # cm
         
         self.reaction_scheme = reaction_scheme
         
@@ -180,18 +176,21 @@ class ModelComponent:
                 self.firstbulk_string += '(ksb_1 * y[0] - kbs_1 * y[1]) * (A[0]/V[0]) + kbbx_1[0] * (y[2] - y[1]) * (A[1]/V[0]) '
                 self.bulk_string += 'kbbx_1[i] * (y[{}*Lorg*{}+(i-1)] - y[{}*Lorg*{}+i]) * (A[i]/V[i]) + kbbx_1[i+1] * (y[{}*Lorg*{}+(i+1)] - y[{}*Lorg*{}+i]) * (A[i+1]/V[i]) '.format(component_number-1,component_number,
                                            component_number-1,component_number,component_number-1,component_number,component_number-1,component_number)
+                self.core_string += 'kbbx_1[-1] * (y[{}*Lorg+{}-1] - y[{}*Lorg+{}]) * (A[-1]/V[-1]) '.format(component_number,component_number-1,component_number,component_number-1)
             else:
                 self.surf_string += 'kbs_{} * y[{}*Lorg+{}]] - ksb_{} * y[{}*Lorg+{}] '.format(component_number,component_number-1,component_number,component_number,component_number-1,component_number-1)
                 self.firstbulk_string += '(ksb_{} * y[{}*Lorg+{}] - kbs_{} * y[{}*Lorg+{}]) * (A[0]/V[0]) + kbbx_{}[0] * (y[{}*Lorg+{}] - y[{}*Lorg+{}]) * (A[1]/V[0]) '.format(component_number,component_number-1,component_number-1,component_number,
                                           component_number-1,component_number,component_number,component_number-1,component_number+1,component_number-1,component_number)
                 self.bulk_string += 'kbbx_{}[i] * (y[{}*Lorg*{}+(i-1)] - y[{}*Lorg*{}+i]) * (A[i]/V[i]) + kbbx_{}[i+1] * (y[{}*Lorg*{}+(i+1)] - y[{}*Lorg*{}+i]) * (A[i+1]/V[i]) '.format(component_number,component_number-1,component_number,
                                            component_number-1,component_number,component_number,component_number-1,component_number,component_number-1,component_number)
+                self.core_string += 'kbbx_{}[-1] * (y[{}*Lorg+{}-1] - y[{}*Lorg+{}]) * (A[-1]/V[-1]) '.format(component_number,component_number,component_number-1,component_number,component_number-1)
         else:
             if component_number == 1:
                 self.surf_string += 'kbss_1 * y[1] - kssb_1 * y[0] '
                 self.firstbulk_string += '(kssb_1 * y[0] - kbss_1 * y[1]) * (A[0]/V[0]) + kbby_1[0] * (y[2] - y[1]) * (A[1]/V[0]) '
                 self.bulk_string += 'kbby_1[i] * (y[{}*Lorg*{}+(i-1)] - y[{}*Lorg*{}+i]) * (A[i]/V[i]) + kbby_1[i+1] * (y[{}*Lorg*{}+(i+1)] - y[{}*Lorg*{}+i]) * (A[i+1]/V[i]) '.format(component_number-1,component_number,
                                            component_number-1,component_number,component_number-1,component_number,component_number-1,component_number)
+                self.core_string += 'kbby_1[-1] * (y[{}*Lorg+{}-1] - y[{}*Lorg+{}]) * (A[-1]/V[-1]) '.format(component_number,component_number-1,component_number,component_number-1)
                 
             else:
                 self.surf_string += 'kbss_{} * y[{}*Lorg+{}]] - kssb_{} * y[{}*Lorg+{}] '.format(component_number,component_number-1,component_number,component_number,component_number-1,component_number-1)
@@ -199,7 +198,9 @@ class ModelComponent:
                                           component_number-1,component_number,component_number,component_number-1,component_number+1,component_number-1,component_number)
                 self.bulk_string += 'kbby_{}[i] * (y[{}*Lorg*{}+(i-1)] - y[{}*Lorg*{}+i]) * (A[i]/V[i]) + kbby_{}[i+1] * (y[{}*Lorg*{}+(i+1)] - y[{}*Lorg*{}+i]) * (A[i+1]/V[i]) '.format(component_number,component_number-1,component_number,
                                            component_number-1,component_number,component_number,component_number-1,component_number,component_number-1,component_number)
-        
+                self.core_string += 'kbby_{}[-1] * (y[{}*Lorg+{}-1] - y[{}*Lorg+{}]) * (A[-1]/V[-1]) '.format(component_number,component_number,component_number-1,component_number,component_number-1)
+                
+                
         # add reactions
     
 class DiffusionRegime():
@@ -214,7 +215,7 @@ class DiffusionRegime():
     # which components have a comp dependence?
     # for each component write definition of D as a string
     # ouput a string which defines kbb, ksb etc (?)
-    def __init__(self,regime='vignes',diff_dict=None):
+    def __init__(self,model_components_tuple,regime='vignes',diff_dict=None):
         
         # string defining the diffusion regime to use
         self.regime = regime
@@ -227,15 +228,24 @@ class DiffusionRegime():
         # movement of each component between model layers
         self.kbb_strings = None
         
+        # list of strings for kbs/ksb and kbss/kssb
+        self.kbs_strings = None
+        self.ksb_strings = None
+        self.kbss_strings = None
+        self.kssb_strings = None
+        
         # list of strings describing Db for each model component
         self.Db_strings = None
         
         # list of strings describing Ds for each model component
         self.Ds_strings = None
         
+        self.model_components_tuple = model_components_tuple
+        
         # A boolean which changes to true once the diffusion regime has been 
         # built
         self.constructed = False
+        
         
     def __call__(self):
         
@@ -247,6 +257,10 @@ class DiffusionRegime():
         Db_definition_string_list = []
         Ds_definition_string_list = []
         kbb_string_list = [] # no need for this, it's the same definition
+        ksb_string_list = []
+        kbs_string_list = []
+        kbss_string_list = []
+        kssb_string_list = []
         
         # for each component in the diffuion evolution dictionary
         # this dict should be the same length as the number of components
@@ -328,12 +342,39 @@ class DiffusionRegime():
                 
                 Db_definition_string_list.append(Db_string)
                 Ds_definition_string_list.append(Ds_string)
-        
+                
+            # define kbb and kbs/ksb strings for each component
+            if self.model_components_tuple[i].react_gas == True:
+                ksb_string = 'ksb_{} = H_{} * kbs_{} / Td_{} / (W_{}*alpha_s_{}/4) '.format(i+1,i+1,i+1,i+1,i+1,i+1)
+                ksb_string_list.append(ksb_string)
+                
+                kbs_string = 'kbs_{} = (4/pi) * Ds_{} / delta '.format(i+1,i+1)
+                kbs_string_list.append(kbs_string)
+                
+                kbb_string = 'kbbx_{} = (4/pi) * Db_{}_arr / delta '.format(i+1,i+1)
+                kbb_string_list.append(kbb_string)
+                
+            else:
+                kssb_string = 'kssb_{} = kbss_{} / delta_{} '.format(i+1,i+1,i+1)
+                kssb_string_list.append(kssb_string)
+                
+                kbss_string = 'kbss_{} = (8*Db_{}_arr[0])/((delta+delta_{})*pi) '.format(i+1,i+1,i+1)
+                kbss_string_list.append(kbss_string)
+                
+                kbb_string = 'kbby_{} = (4/pi) * Db_{}_arr / delta '.format(i+1,i+1)
+                kbb_string_list.append(kbb_string)
         
         # update the Db_strings and Ds_strings attributes
         self.Db_strings = Db_definition_string_list
         
         self.Ds_strings = Ds_definition_string_list
+        
+        self.kbb_strings = kbb_string_list
+        self.kbs_strings = kbs_string_list
+        self.ksb_strings = ksb_string_list
+        self.kbss_strings = kbss_string_list
+        self.kssb_strings = kssb_string_list
+        
         
         # this diffusion regime is now constructed
         self.constructed = True        
