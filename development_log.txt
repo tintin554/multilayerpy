@@ -11,9 +11,14 @@ for future compartmental model implementations
 
 - Define kbb strings in DiffusionRegime
 
+
 - define __str__ representation in DiffusionRegime
 - DiffusionRegime.savetxt()
 
 - put in offset on i if multi-compartment model (maybe a much more "future" development)
 
 - removed w and gas_conc from ModelComponent
+
+- need to consider stoichiometry
+
+- Make a Parameter class with name, bounds, value etc. 

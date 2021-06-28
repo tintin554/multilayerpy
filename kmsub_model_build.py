@@ -27,7 +27,9 @@ class ReactionScheme:
     Defining the reaction scheme (what reacts with what)
     '''
     
-    def __init__(self,name='rxn scheme',n_components=None,reaction_tuple_list=None,products_of_reactions_list=None,component_names=[]):
+    def __init__(self,name='rxn scheme',n_components=None,
+                 reaction_tuple_list=None,products_of_reactions_list=None,
+                 component_names=[],reactant_stoich=None, product_stoich=None):
     
         # name of reaction scheme
         self.name = name # *error if not a string
@@ -42,6 +44,10 @@ class ReactionScheme:
         # check same reaction is not repeated
         # tuple list of which components are produced from each reaction
         self.reaction_products = products_of_reactions_list # * error if None and len != n_components
+        
+        self.reactant_stoich = reactant_stoich
+        
+        self.product_stoich = product_stoich
         
         # list of component names, defaults to empty list if nothing supplied
         self.comp_names = component_names # *error if not list of strings with len = n_components
@@ -114,8 +120,8 @@ class ReactionScheme:
             if self.comp_names != []:
                 False not in isstring_bool_list
                 
-        except TypeError:
-            print('All component names need to be strings')
+        except TypeError as err:
+            print(err,'...All component names need to be strings')
             
         self.checked = True
         
@@ -127,18 +133,20 @@ class ModelComponent:
     '''
     
     def __init__(self,diff_coeff,reaction_scheme,component_number=None,
-                 name=None,react_gas=False,compartmental=False,diameter=None):
+                 name=None,gas=False,compartmental=False,diameter=None):
         # make strings representing surf, sub-surf, bulk and core dydt
         # dependent on reaction scheme
         # initially account for diffusion
         
         # optional name for the component
         self.name = name
-        if name == None and react_gas != True:
+        if name == None and gas != True:
             self.name = 'Y{}'.format(component_number)
             
-        elif name == None and react_gas == True:
+        elif name == None and gas == True:
             self.name = 'X{}'.format(component_number)
+            
+        self.w = None # mean molecular thermal velocity of component in gas phase cm s-1
         
         self.diff_coeff = diff_coeff # cm2 s-1
         
@@ -151,6 +159,10 @@ class ModelComponent:
         self.reaction_scheme = reaction_scheme
         
         self.compartmental = compartmental
+        
+        self.param_dict = None
+        
+        self.gas = gas
         
         # define initial strings for each differential equation to be solved
         # remembering Python counts from 0
@@ -170,7 +182,7 @@ class ModelComponent:
         # add mass transport terms to each string
         
         #surf transport different for gases and non-volatiles
-        if react_gas == True:
+        if self.gas == True:
             if component_number == 1:
                 self.surf_string += 'kbs_1 * y[1] - ksb_1 * y[0] '
                 self.firstbulk_string += '(ksb_1 * y[0] - kbs_1 * y[1]) * (A[0]/V[0]) + kbbx_1[0] * (y[2] - y[1]) * (A[1]/V[0]) '
@@ -215,7 +227,7 @@ class DiffusionRegime():
     # which components have a comp dependence?
     # for each component write definition of D as a string
     # ouput a string which defines kbb, ksb etc (?)
-    def __init__(self,model_components_tuple,regime='vignes',diff_dict=None):
+    def __init__(self,model_components_dict,regime='vignes',diff_dict=None):
         
         # string defining the diffusion regime to use
         self.regime = regime
@@ -240,8 +252,11 @@ class DiffusionRegime():
         # list of strings describing Ds for each model component
         self.Ds_strings = None
         
-        self.model_components_tuple = model_components_tuple
-        
+        self.req_diff_params = None
+
+        self.model_components_dict = model_components_dict
+    
+            
         # A boolean which changes to true once the diffusion regime has been 
         # built
         self.constructed = False
@@ -261,6 +276,7 @@ class DiffusionRegime():
         kbs_string_list = []
         kbss_string_list = []
         kssb_string_list = []
+        req_diff_params = set([])
         
         # for each component in the diffuion evolution dictionary
         # this dict should be the same length as the number of components
@@ -278,15 +294,20 @@ class DiffusionRegime():
                 if self.regime == 'vignes':
                     # initially dependent on D_comp in pure comp
                     # raised to the power of fraction of component
-                    Db_string = f'Db_{i+1}_arr = (D_{i+1}_arr**f_{i+1}_arr) '
+                    Db_string = f'Db_{i+1}_arr = (Db_{i+1}_arr**f_{i+1}_arr) '
                     
-                    Ds_string = f'Ds_{i+1} = (D_{i+1}**fs_{i+1}) '
+                    Ds_string = f'Ds_{i+1} = (Db_{i+1}**fs_{i+1}) '
+                    
+                    req_diff_params.add(f'Db_{i+1}')
                     
                     # loop over depending components 
                     for comp in compos_depend_tup:
                         Db_string += f'* (Db_{i+1}_{comp}_arr**f_{comp}_arr) '
                         
                         Ds_string += f'* (Db_{i+1}_{comp}**fs_{comp}) '
+                        
+                        req_diff_params.add(f'Db_{i+1}_{comp}')
+                        
                         
                     Db_definition_string_list.append(Db_string)
                     Ds_definition_string_list.append(Ds_string)
@@ -297,15 +318,19 @@ class DiffusionRegime():
                 elif self.regime == 'fractional':
                     # initially dependent on D_comp in pure comp
                     # multiply by fraction of component
-                    Db_string = f'Db_{i+1}_arr = (D_{i+1}_arr * f_{i+1}_arr) '
+                    Db_string = f'Db_{i+1}_arr = (Db_{i+1}_arr * f_{i+1}_arr) '
                     
-                    Ds_string = f'Ds_{i+1} = (D_{i+1}**fs_{i+1}) '
+                    Ds_string = f'Ds_{i+1} = (Db_{i+1}**fs_{i+1}) '
+                    
+                    req_diff_params.add(f'Db_{i+1}')
                     
                     # loop over depending components 
                     for comp in compos_depend_tup:
                         Db_string += f'+ (Db_{i+1}_{comp}_arr * f_{comp}_arr) '
                         
                         Ds_string += f'+ (Db_{i+1}_{comp} * fs_{comp}) '
+                        
+                        req_diff_params.add(f'Db_{i+1}_{comp}')
                         
                     Db_definition_string_list.append(Db_string)
                     Ds_definition_string_list.append(Ds_string)
@@ -325,9 +350,11 @@ class DiffusionRegime():
                             sum_product_fractions += f'+ f_{comp} '
                             
                     # obstruction theory equation (Stroeve 1975)    
-                    Db_string = f'Db_{i+1}_arr = (D_{i+1}_arr * (2 - 2 * f_prod) / (2 + f_prod)'
+                    Db_string = f'Db_{i+1}_arr = (Db_{i+1}_arr * (2 - 2 * f_prod) / (2 + f_prod)'
                     
-                    Ds_string = f'Db_{i+1} = (D_{i+1} * (2 - 2 * fs_prod) / (2 + fs_prod)'
+                    Ds_string = f'Ds_{i+1} = (Db_{i+1} * (2 - 2 * fs_prod) / (2 + fs_prod)'
+                    
+                    req_diff_params.add(f'Db_{i+1}')
                     
                     Db_definition_string_list.append(Db_string)
                     Ds_definition_string_list.append(Ds_string)
@@ -339,12 +366,15 @@ class DiffusionRegime():
             # component, end of story
             else:
                 Db_string = f'Db_{i+1}_arr = D_{i+1}_arr'
+                Ds_string = f'Ds_{i+1} = D_{i+1}'
+                
+                req_diff_params.add(f'Db_{i+1}')
                 
                 Db_definition_string_list.append(Db_string)
                 Ds_definition_string_list.append(Ds_string)
                 
             # define kbb and kbs/ksb strings for each component
-            if self.model_components_tuple[i].react_gas == True:
+            if self.model_components_dict[f'{i+1}'].gas == True:
                 ksb_string = 'ksb_{} = H_{} * kbs_{} / Td_{} / (W_{}*alpha_s_{}/4) '.format(i+1,i+1,i+1,i+1,i+1,i+1)
                 ksb_string_list.append(ksb_string)
                 
@@ -406,7 +436,7 @@ class ModelBuilder():
     of model components and a diffusion regime
     '''
     
-    def __init__(self,reaction_scheme,model_components,diffusion_regime,
+    def __init__(self,reaction_scheme,model_components_dict,diffusion_regime,
                  volume_layers,area_layers,n_layers,
                  model_type='KM-SUB',geometry='spherical'):
        '''
@@ -415,8 +445,7 @@ class ModelBuilder():
 
        self.reaction_scheme = reaction_scheme
        
-       self.model_components = model_components
-       # check if model components in the correct order
+       self.model_components = model_components_dict
        
        self.diffusion_regime = diffusion_regime # error if not dict
        
@@ -430,25 +459,218 @@ class ModelBuilder():
        
        self.model_type = model_type # error if not in accepted types
        
+       # a SET of strings with names of required parameters
+       self.req_params = None
+       
        # list of output strings for final file write and coupling to 
        # compartmental models
        self.file_string_list = []
        
        self.constructed = False
-    
+       
+       def build(self, name_extention=None, date=False):
+           '''
+           Builds the model and saves it to a separate .py file
+           Different for different model types 
+           '''
+           # the list of strings which will be used with file.writelines()
+           # at the end
+           master_string_list = []
+           four_space = '    '
+           
+           date = ''
+           mod_type = self.model_type
+           rxn_name = self.reaction_scheme.rxn_name
+           mod_comps = self.model_components
+           
+           heading_strings = ['###############################################\n',
+                              f'#A {mod_type} model constructed using MultilayerPy\n',
+                              '\n',
+                              f'#Created {date}\n',
+                              '\n',
+                              f'#Reaction name: {rxn_name}\n',
+                              f'#Geometry: {self.geometry}\n',
+                              f'#Number of model components: {len(self.model_components)}\n',
+                              f'#Diffusion regime: {self.diffusion_regime}\n',
+                              '###############################################\n']
+           
+           # append the heading to the master strings
+           for s in heading_strings:
+               master_string_list.append(s)
+               
+           # define dydt function
+           func_def_strings = ['\n def dydt(t,y,param_dict,V,A):\n',
+                               '    """ Function defining ODEs, returns list of dydt"""\n',
+                       ]
+           
+           for s in func_def_strings:
+               master_string_list.append(s)
+               
+           # initialise dydt output array
+           n_comps = len(mod_comps)
+           init_dydt = f'\n    dydt = np.zeros(Lorg * {n_comps} + {n_comps})'
+           master_string_list.append(init_dydt)
+           
+           # unpack all params from params dictionary
+           master_string_list.append('\n    #--------------Unpack parameters---------------\n')
+           
+           for param_str in self.req_params:
+               param_unpack_str = '\n    ' + param_str + ' = param_dict[' + '"' + param_str + '"]'
+               
+               master_string_list.append(param_unpack_str)
+               
+               # convert to surface reaction rates from bulk reaction rates
+               if 'k_' in param_str and '_surf' not in param_str:
+                   k_surf_string = '\n    ' + param_str + '_surf = ' + param_str + ' * scale_bulk_to_surf'
+                   
+                   master_string_list.append(k_surf_string)
+           
+           # surface uptake definition for each gas component
+           master_string_list.append('\n    #--------------Define surface uptake parameters for gas components---------------\n')
+           
+           # calculate surface fraction of each component
+           master_string_list.append('\n    #calculate surface fraction of each component\n')
+           for comp in mod_comps:
+               comp_no = comp.component_number
+               fs_string = f'    fs_{comp_no} = y[{comp_no}*Lorg+{comp_no}] / ('
+               
+               # loop over each other component and add to the fs_string
+               for ind, c in enumerate(mod_comps):
+                   if c.component_number != comp_no:
+                       cn = c.component_number
+                       if ind == 0:
+                           fs_string += f'y[{cn}*Lorg+{cn}] '
+                       else:
+                           fs_string += f'+ y[{cn}*Lorg+{cn}]'
+                    
+             # close the bracket on the demoninator
+               fs_string += ')'
+               
+               master_string_list.append(fs_string)
+           
+           # for each gaseous model component, calculate surface uptake/loss params
+           # first calculate surface coverage separately
+           
+           surf_cover_str = '\n    surf_cover = '
+           counter = 0
+           for comp in mod_comps:
+               if comp.gas == True:
+                   comp_no = comp.component_number
+                   if counter == 0:
+                       surf_cover_str += f'delta_{comp_no}**2 * y[{comp_no}*Lorg+{comp_no}] '
+                       counter += 1
+                   else:
+                       surf_cover_str += f'+ delta_{comp_no}**2 * y[{comp_no}*Lorg+{comp_no}]'
+           
+           for comp in mod_comps:
+               if comp.gas == True:
+                   comp_no = comp.component_number
+                   
+                   if comp.name != None:
+                       master_string_list.append(f'\n    # component {comp_no} surf params\n')
+                   else:
+                       master_string_list.append(f'\n    # component {comp_no} ({comp.name}) surf params\n')
+                   
+                   # alpha_s_X
+                   alpha_s_str = f'\n    alpha_s_{comp_no} = alpha_s_0_{comp_no} * (1-surf_cover)'
+                   master_string_list.append(alpha_s_str)
+                   
+                   # J_coll_X
+                   j_coll_str = f'\n    J_coll_X_{comp_no} = Xgs_{comp_no} * w_{comp_no}/4'
+                   master_string_list.append(j_coll_str)
+                   
+                   # J_ads_X
+                   j_ads_str = f'\n    J_ads_X_{comp_no} = alpha_s_{comp_no} * J_coll_X_{comp_no}'
+                   master_string_list.append(j_ads_str)
+                   
+                   # J_des_X
+                   j_des_str = f'\n    J_des_X_{comp_no} = kd_X_{comp_no} * y[{comp_no}*Lorg+{comp_no}]'
+                   master_string_list.append(j_des_str)
+            
+           
+            # diffusion evolution
+           
+           master_string_list.append('\n    #--------------Diffusion evolution---------------\n')
+           
+           # calculate bulk fraction array for each component in each layer
+           # DO THIS ADAM - Make Db arrays etc.
+           
+           diff_regime = self.diffusion_regime
+           
+           master_string_list.append('\n    # surface diffusion')
+           #Ds
+           for s in diff_regime.Ds_strings:
+               master_string_list.append(four_space+s+'\n')
+           # ksb
+           for s in diff_regime.ksb_strings:
+               master_string_list.append(four_space+s+'\n')
+           # kbs
+           for s in diff_regime.kbs_strings:
+               master_string_list.append(four_space+s+'\n')
+           #kssb
+           for s in diff_regime.kssb_strings:
+               master_string_list.append(four_space+s+'\n')
+           #kbss
+           for s in diff_regime.kbss_strings:
+               master_string_list.append(four_space+s+'\n') 
+               
+           master_string_list.append('\n    # bulk diffusion')
+           #Db
+           for s in diff_regime.Db_strings:
+               master_string_list.append(four_space+s+'\n')
+           # kbb
+           for s in diff_regime.kbb_strings:
+               master_string_list.append(four_space+s+'\n')
+           
+            
+           '''
+           For each component, loop over the reaction scheme and identify which
+           rxns the component is involved in. Check if stoichiometry involved.
+           Add the reaction as necessary to the relevant string.
+           '''
+       
+    def __call__(self):
+        '''
+        XXX
+     
+        Returns
+        -------
+        None.
+     
+        '''
+        # validate, check req_params are in the param dicts of the corresponding
+        # ModelComponent objects
+        # create param_dict, user warning to provide param_dict#
+        
+   
+class Parameter():
+    '''
+    A class which will define a parameter object.
+    '''
+    def __init__(self, value=np.inf, name=None,bounds=None, vary=False):
+        
+        self.name = name
+        
+        # define bounds if given
+        if bounds is not None:
+            self.bounds = bounds
+            
+        self.value = value
+        self.vary = vary
+       
+        
+
     
 # testing 123
     
-init = ReactionScheme(n_components=2,
+init = ReactionScheme(n_components=3,
                       reaction_tuple_list=[(1,2)],
                       products_of_reactions_list=[(3,)])
                       
 # something that will tell me what each component                       
 diff_dict = {'1' : None,
              '2': (3,1),
-             '3': (4),
-             '4': (3,2),
-                 }                      
+             }                     
                       
                       
                       
