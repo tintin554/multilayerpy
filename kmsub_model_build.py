@@ -164,6 +164,8 @@ class ModelComponent:
         
         self.gas = gas
         
+        self.reactions_added = False
+        
         # define initial strings for each differential equation to be solved
         # remembering Python counts from 0
         if component_number == 1:
@@ -294,7 +296,7 @@ class DiffusionRegime():
                 if self.regime == 'vignes':
                     # initially dependent on D_comp in pure comp
                     # raised to the power of fraction of component
-                    Db_string = f'Db_{i+1}_arr = (Db_{i+1}_arr**f_{i+1}_arr) '
+                    Db_string = f'Db_{i+1}_arr = (Db_{i+1}_arr**fb_{i+1}_arr) '
                     
                     Ds_string = f'Ds_{i+1} = (Db_{i+1}**fs_{i+1}) '
                     
@@ -302,7 +304,7 @@ class DiffusionRegime():
                     
                     # loop over depending components 
                     for comp in compos_depend_tup:
-                        Db_string += f'* (Db_{i+1}_{comp}_arr**f_{comp}_arr) '
+                        Db_string += f'* (Db_{i+1}_{comp}_arr**fb_{comp}_arr) '
                         
                         Ds_string += f'* (Db_{i+1}_{comp}**fs_{comp}) '
                         
@@ -318,7 +320,7 @@ class DiffusionRegime():
                 elif self.regime == 'fractional':
                     # initially dependent on D_comp in pure comp
                     # multiply by fraction of component
-                    Db_string = f'Db_{i+1}_arr = (Db_{i+1}_arr * f_{i+1}_arr) '
+                    Db_string = f'Db_{i+1}_arr = (Db_{i+1}_arr * fb_{i+1}_arr) '
                     
                     Ds_string = f'Ds_{i+1} = (Db_{i+1}**fs_{i+1}) '
                     
@@ -326,7 +328,7 @@ class DiffusionRegime():
                     
                     # loop over depending components 
                     for comp in compos_depend_tup:
-                        Db_string += f'+ (Db_{i+1}_{comp}_arr * f_{comp}_arr) '
+                        Db_string += f'+ (Db_{i+1}_{comp}_arr * fb_{comp}_arr) '
                         
                         Ds_string += f'+ (Db_{i+1}_{comp} * fs_{comp}) '
                         
@@ -345,9 +347,9 @@ class DiffusionRegime():
                     # string
                     for a, comp in enumerate(compos_depend_tup):
                         if a == 0:
-                            sum_product_fractions += f'f_{comp} '
+                            sum_product_fractions += f'fb_{comp} '
                         else:
-                            sum_product_fractions += f'+ f_{comp} '
+                            sum_product_fractions += f'+ fb_{comp} '
                             
                     # obstruction theory equation (Stroeve 1975)    
                     Db_string = f'Db_{i+1}_arr = (Db_{i+1}_arr * (2 - 2 * f_prod) / (2 + f_prod)'
@@ -468,7 +470,7 @@ class ModelBuilder():
        
        self.constructed = False
        
-       def build(self, name_extention=None, date=False):
+       def build(self, name_extention=None, date=False,**kwargs):
            '''
            Builds the model and saves it to a separate .py file
            Different for different model types 
@@ -590,10 +592,33 @@ class ModelBuilder():
            
             # diffusion evolution
            
-           master_string_list.append('\n    #--------------Diffusion evolution---------------\n')
+           master_string_list.append('\n    #--------------Bulk Diffusion evolution---------------\n')
            
            # calculate bulk fraction array for each component in each layer
-           # DO THIS ADAM - Make Db arrays etc.
+           master_string_list.append('\n    # Db and fb arrays')
+           for comp in mod_comps:
+               comp_no = comp.component_number
+               fb_string = f'\n    fb_{comp_no} = y[{comp_no-1}*Lorg+{comp_no}:{comp_no}*Lorg+{comp_no-1}+1] / ('
+               
+               # loop over each other component and add to the fb_string
+               for ind, c in enumerate(mod_comps):
+                   if c.component_number != comp_no:
+                       cn = c.component_number
+                       if ind == 0:
+                           fb_string += f'y[{cn-1}*Lorg+{cn}:{cn}*Lorg+{cn-1}+1] '
+                       else:
+                           fb_string += f'+ y[{cn-1}*Lorg+{cn}:{cn}*Lorg+{cn-1}+1]'
+                           
+               # close the bracket on the demoninator    
+               fb_string += ')'
+               
+               master_string_list.append(fb_string)
+           
+           # Db arrays for each component
+           for comp in mod_comps:
+               comp_no = comp.component_number
+               Db_arr_string = f'\n    Db_{comp_no}_arr = np.ones(Lorg) * Db_{comp_no}'
+               master_string_list.append(Db_arr_string)
            
            diff_regime = self.diffusion_regime
            
@@ -628,6 +653,42 @@ class ModelBuilder():
            rxns the component is involved in. Check if stoichiometry involved.
            Add the reaction as necessary to the relevant string.
            '''
+           for comp in mod_comps:
+               
+               # for each reaction (reactants and products)
+               for i in np.arange(len(self.reaction_scheme.reaction_tuples)):
+                   reactants = self.reaction.scheme.reaction_tuples[i]
+                   products = self.reaction.scheme.reaction_products[i]
+                   reactant_stoich = self.reaction.scheme.reactant_stoich[i]
+                   product_stoich =  self.reaction.scheme.product_stoich[i]
+                   
+                   # NEED TO CONSIDER 1ST ORDER DECAY TOO ADAM
+                   # if this component is lost as a reactant
+                   if int(comp.component_number) in reactants:
+                   
+                       # build up surface, bulk and core strings for reactive loss
+                       for rn in reactants:
+                           if rn != int(comp.component_number):
+                               cn  = comp.component_number
+                               
+                               # INCLUDE STOICHIOMETRY (MULTIPLY BY STOICH COEFF)
+                        
+                               comp.surf_string += f'- y[{cn-1}*Lorg+{cn-1}] * y[{rn-1}*Lorg+{rn-1}] * k'
+                               comp.firstbulk_string += f'- y[{cn-1}*Lorg+{cn}] * y[{rn-1}*Lorg+{rn}] * k'
+                               comp.bulk_string += f'- y[{cn-1}*Lorg+{cn}+i] * y[{rn-1}*Lorg+{rn}+i] * k'
+                               comp.core_string += f'- y[{cn}*Lorg+{cn-1}] * y[{cn}*Lorg+{cn-1}] * k'
+                               
+                               # sorted array of cn and rn to define correct reaction constant (k)
+                               sorted_cn_rn = np.array([cn,rn]).sort()
+                               for n in sorted_cn_rn:
+                                   comp.surf_string += '_{n}'   
+                                   comp.firstbulk_string += '_{n}'
+                                   comp.bulk_string += '_{n}'
+                                   comp.core_string += '_{n}'
+                                   
+                               
+                       
+               
        
     def __call__(self):
         '''

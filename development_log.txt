@@ -21,4 +21,6 @@ for future compartmental model implementations
 
 - need to consider stoichiometry
 
-- Make a Parameter class with name, bounds, value etc. 
+- Make a Parameter class with name, bounds, value etc. ~~
+
+- Add a "reactions_added" boolean attribute to ModelComponent - allow to check if the model build function has added reactive gain/loss to that model component
