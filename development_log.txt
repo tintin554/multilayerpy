@@ -9,7 +9,7 @@ DEVELOPMENT LOG MULTI-LAYER MODEL BUILDER:
 - model component construct strings in __call__ function and add in an "offset" parameter 
 for future compartmental model implementations
 
-- Define kbb strings in DiffusionRegime
+- Define kbb strings in DiffusionRegime $
 
 
 - define __str__ representation in DiffusionRegime
@@ -17,10 +17,21 @@ for future compartmental model implementations
 
 - put in offset on i if multi-compartment model (maybe a much more "future" development)
 
-- removed w and gas_conc from ModelComponent
+- removed w and gas_conc from ModelComponent $
 
-- need to consider stoichiometry
+- need to consider stoichiometry ~~
 
 - Make a Parameter class with name, bounds, value etc. ~~
 
-- Add a "reactions_added" boolean attribute to ModelComponent - allow to check if the model build function has added reactive gain/loss to that model component
+- Add a "reactions_added" boolean attribute to ModelComponent - allow to check if the model build function has added reactive gain/loss to that model component $
+
+- First order decay list supplied to ModelBuilder.build(). Will add first order decay to a list of components ~~ No, go with if reaction tuple length == 1
+
+- Get Reaction Scheme to print out a readable reaction scheme for the user ~~
+
+- Need to make it so that if nothing is supplied to diffusion dict for a component by user, deal with it in DiffusionEvolution
+
+- Add to ModelBuilder.req_params as I build the model in ModelBuilder.build(), then define "unpack parameters" section at the end of the build() function
+	- when unpacking, add in if vary == True, redefine the parameter to be X0[index] (X0 being an array of varying params supplied to the minimiser)
+
+- utility functions - make_component_dict()

@@ -21,6 +21,7 @@ define strings for each dydt for: 1. surface, 2. sub-surface, 3. bulk, 4. core
 '''
 
 import numpy as np
+import os
 
 class ReactionScheme:
     '''
@@ -45,9 +46,9 @@ class ReactionScheme:
         # tuple list of which components are produced from each reaction
         self.reaction_products = products_of_reactions_list # * error if None and len != n_components
         
-        self.reactant_stoich = reactant_stoich
+        self.reactant_stoich = []
         
-        self.product_stoich = product_stoich
+        self.product_stoich = []
         
         # list of component names, defaults to empty list if nothing supplied
         self.comp_names = component_names # *error if not list of strings with len = n_components
@@ -60,12 +61,6 @@ class ReactionScheme:
         '''
         XXX
         '''
-        self.name
-        self.n_components
-        self.reaction_tuples
-        self.reaction_products
-        self.comp_names
-        self.checked
         # check name value is a string 
         try:
             type(self.name) == str
@@ -125,14 +120,38 @@ class ReactionScheme:
             
         self.checked = True
         
-        
+    def display(self):
+        strings = ['#########################################################',
+                   'Reaction scheme: ' + self.name,
+                   '** No stoichiometry shown **',
+                   ]
+        for i in range(len(self.reaction_tuples)):
+            s = f'R{i+1}: '
+            for comp_no in self.reaction_tuples[i]:
+                if len(s) < 5:
+                    s += f'{comp_no} '
+                else:
+                    s += f'+ {comp_no} '
+                    
+            s += '-----> '
+            
+            for comp_no in self.reaction_products[i]:
+                if s[-2] == '>':
+                    s += f'{comp_no} '
+                else:
+                    s += f'+ {comp_no} '
+                    
+            strings.append(s)
+            strings.append('#########################################################')
+        for s in strings:
+            print(s)
     
 class ModelComponent:
     '''
     Model component class with information about it's role in the reaction scheme
     '''
     
-    def __init__(self,diff_coeff,reaction_scheme,component_number=None,
+    def __init__(self,component_number,reaction_scheme,diff_coeff=None,
                  name=None,gas=False,compartmental=False,diameter=None):
         # make strings representing surf, sub-surf, bulk and core dydt
         # dependent on reaction scheme
@@ -462,7 +481,8 @@ class ModelBuilder():
        self.model_type = model_type # error if not in accepted types
        
        # a SET of strings with names of required parameters
-       self.req_params = None
+       #Build this
+       self.req_params = set([])
        
        # list of output strings for final file write and coupling to 
        # compartmental models
@@ -470,225 +490,385 @@ class ModelBuilder():
        
        self.constructed = False
        
-       def build(self, name_extention=None, date=False,**kwargs):
-           '''
-           Builds the model and saves it to a separate .py file
-           Different for different model types 
-           '''
-           # the list of strings which will be used with file.writelines()
-           # at the end
-           master_string_list = []
-           four_space = '    '
-           
-           date = ''
-           mod_type = self.model_type
-           rxn_name = self.reaction_scheme.rxn_name
-           mod_comps = self.model_components
-           
-           heading_strings = ['###############################################\n',
-                              f'#A {mod_type} model constructed using MultilayerPy\n',
-                              '\n',
-                              f'#Created {date}\n',
-                              '\n',
-                              f'#Reaction name: {rxn_name}\n',
-                              f'#Geometry: {self.geometry}\n',
-                              f'#Number of model components: {len(self.model_components)}\n',
-                              f'#Diffusion regime: {self.diffusion_regime}\n',
-                              '###############################################\n']
-           
-           # append the heading to the master strings
-           for s in heading_strings:
-               master_string_list.append(s)
-               
-           # define dydt function
-           func_def_strings = ['\n def dydt(t,y,param_dict,V,A):\n',
-                               '    """ Function defining ODEs, returns list of dydt"""\n',
-                       ]
-           
-           for s in func_def_strings:
-               master_string_list.append(s)
-               
-           # initialise dydt output array
-           n_comps = len(mod_comps)
-           init_dydt = f'\n    dydt = np.zeros(Lorg * {n_comps} + {n_comps})'
-           master_string_list.append(init_dydt)
-           
-           # unpack all params from params dictionary
-           master_string_list.append('\n    #--------------Unpack parameters---------------\n')
-           
-           for param_str in self.req_params:
-               param_unpack_str = '\n    ' + param_str + ' = param_dict[' + '"' + param_str + '"]'
-               
-               master_string_list.append(param_unpack_str)
-               
-               # convert to surface reaction rates from bulk reaction rates
-               if 'k_' in param_str and '_surf' not in param_str:
-                   k_surf_string = '\n    ' + param_str + '_surf = ' + param_str + ' * scale_bulk_to_surf'
-                   
-                   master_string_list.append(k_surf_string)
-           
-           # surface uptake definition for each gas component
-           master_string_list.append('\n    #--------------Define surface uptake parameters for gas components---------------\n')
-           
-           # calculate surface fraction of each component
-           master_string_list.append('\n    #calculate surface fraction of each component\n')
-           for comp in mod_comps:
-               comp_no = comp.component_number
-               fs_string = f'    fs_{comp_no} = y[{comp_no}*Lorg+{comp_no}] / ('
-               
-               # loop over each other component and add to the fs_string
-               for ind, c in enumerate(mod_comps):
-                   if c.component_number != comp_no:
-                       cn = c.component_number
-                       if ind == 0:
-                           fs_string += f'y[{cn}*Lorg+{cn}] '
-                       else:
-                           fs_string += f'+ y[{cn}*Lorg+{cn}]'
-                    
-             # close the bracket on the demoninator
-               fs_string += ')'
-               
-               master_string_list.append(fs_string)
-           
-           # for each gaseous model component, calculate surface uptake/loss params
-           # first calculate surface coverage separately
-           
-           surf_cover_str = '\n    surf_cover = '
-           counter = 0
-           for comp in mod_comps:
-               if comp.gas == True:
-                   comp_no = comp.component_number
-                   if counter == 0:
-                       surf_cover_str += f'delta_{comp_no}**2 * y[{comp_no}*Lorg+{comp_no}] '
-                       counter += 1
-                   else:
-                       surf_cover_str += f'+ delta_{comp_no}**2 * y[{comp_no}*Lorg+{comp_no}]'
-           
-           for comp in mod_comps:
-               if comp.gas == True:
-                   comp_no = comp.component_number
-                   
-                   if comp.name != None:
-                       master_string_list.append(f'\n    # component {comp_no} surf params\n')
-                   else:
-                       master_string_list.append(f'\n    # component {comp_no} ({comp.name}) surf params\n')
-                   
-                   # alpha_s_X
-                   alpha_s_str = f'\n    alpha_s_{comp_no} = alpha_s_0_{comp_no} * (1-surf_cover)'
-                   master_string_list.append(alpha_s_str)
-                   
-                   # J_coll_X
-                   j_coll_str = f'\n    J_coll_X_{comp_no} = Xgs_{comp_no} * w_{comp_no}/4'
-                   master_string_list.append(j_coll_str)
-                   
-                   # J_ads_X
-                   j_ads_str = f'\n    J_ads_X_{comp_no} = alpha_s_{comp_no} * J_coll_X_{comp_no}'
-                   master_string_list.append(j_ads_str)
-                   
-                   # J_des_X
-                   j_des_str = f'\n    J_des_X_{comp_no} = kd_X_{comp_no} * y[{comp_no}*Lorg+{comp_no}]'
-                   master_string_list.append(j_des_str)
+    def build(self, name_extention='', date=False, first_order_decays=None, **kwargs):
+        '''
+        Builds the model and saves it to a separate .py file
+        Different for different model types 
+        '''
+        # the list of strings which will be used with file.writelines()
+        # at the end
+        master_string_list = []
+        four_space = '    '
+        extention = name_extention
+        
+        date = ''
+        mod_type = self.model_type
+        rxn_name = self.reaction_scheme.name
+        mod_comps = self.model_components
+        
+        heading_strings = ['###############################################\n',
+                           f'#A {mod_type} model constructed using MultilayerPy\n',
+                           '\n',
+                           f'#Created {date}\n',
+                           '\n',
+                           f'#Reaction name: {rxn_name}\n',
+                           f'#Geometry: {self.geometry}\n',
+                           f'#Number of model components: {len(self.model_components)}\n',
+                           f'#Diffusion regime: {self.diffusion_regime.regime}\n',
+                           '###############################################\n']
+        
+        # append the heading to the master strings
+        # for s in heading_strings:
+        #     master_string_list.append(s)
             
-           
-            # diffusion evolution
-           
-           master_string_list.append('\n    #--------------Bulk Diffusion evolution---------------\n')
-           
-           # calculate bulk fraction array for each component in each layer
-           master_string_list.append('\n    # Db and fb arrays')
-           for comp in mod_comps:
-               comp_no = comp.component_number
-               fb_string = f'\n    fb_{comp_no} = y[{comp_no-1}*Lorg+{comp_no}:{comp_no}*Lorg+{comp_no-1}+1] / ('
-               
-               # loop over each other component and add to the fb_string
-               for ind, c in enumerate(mod_comps):
-                   if c.component_number != comp_no:
-                       cn = c.component_number
-                       if ind == 0:
-                           fb_string += f'y[{cn-1}*Lorg+{cn}:{cn}*Lorg+{cn-1}+1] '
-                       else:
-                           fb_string += f'+ y[{cn-1}*Lorg+{cn}:{cn}*Lorg+{cn-1}+1]'
-                           
-               # close the bracket on the demoninator    
-               fb_string += ')'
-               
-               master_string_list.append(fb_string)
-           
-           # Db arrays for each component
-           for comp in mod_comps:
-               comp_no = comp.component_number
-               Db_arr_string = f'\n    Db_{comp_no}_arr = np.ones(Lorg) * Db_{comp_no}'
-               master_string_list.append(Db_arr_string)
-           
-           diff_regime = self.diffusion_regime
-           
-           master_string_list.append('\n    # surface diffusion')
-           #Ds
-           for s in diff_regime.Ds_strings:
-               master_string_list.append(four_space+s+'\n')
-           # ksb
-           for s in diff_regime.ksb_strings:
-               master_string_list.append(four_space+s+'\n')
-           # kbs
-           for s in diff_regime.kbs_strings:
-               master_string_list.append(four_space+s+'\n')
-           #kssb
-           for s in diff_regime.kssb_strings:
-               master_string_list.append(four_space+s+'\n')
-           #kbss
-           for s in diff_regime.kbss_strings:
-               master_string_list.append(four_space+s+'\n') 
-               
-           master_string_list.append('\n    # bulk diffusion')
-           #Db
-           for s in diff_regime.Db_strings:
-               master_string_list.append(four_space+s+'\n')
-           # kbb
-           for s in diff_regime.kbb_strings:
-               master_string_list.append(four_space+s+'\n')
-           
+        # define dydt function
+        func_def_strings = ['\ndef dydt(t,y,param_dict,V,A):\n',
+                            '    """ Function defining ODEs, returns list of dydt"""\n',
+                    ]
+        
+        # for s in func_def_strings:
+        #     master_string_list.append(s)
             
-           '''
-           For each component, loop over the reaction scheme and identify which
-           rxns the component is involved in. Check if stoichiometry involved.
-           Add the reaction as necessary to the relevant string.
-           '''
-           for comp in mod_comps:
-               
-               # for each reaction (reactants and products)
-               for i in np.arange(len(self.reaction_scheme.reaction_tuples)):
-                   reactants = self.reaction.scheme.reaction_tuples[i]
-                   products = self.reaction.scheme.reaction_products[i]
-                   reactant_stoich = self.reaction.scheme.reactant_stoich[i]
-                   product_stoich =  self.reaction.scheme.product_stoich[i]
-                   
-                   # NEED TO CONSIDER 1ST ORDER DECAY TOO ADAM
-                   # if this component is lost as a reactant
-                   if int(comp.component_number) in reactants:
-                   
-                       # build up surface, bulk and core strings for reactive loss
-                       for rn in reactants:
-                           if rn != int(comp.component_number):
-                               cn  = comp.component_number
-                               
-                               # INCLUDE STOICHIOMETRY (MULTIPLY BY STOICH COEFF)
+        # initialise dydt output array
+        n_comps = len(mod_comps)
+        init_dydt = f'\n\n    # init dydt array\n    dydt = np.zeros(Lorg * {n_comps} + {n_comps})\n'
+        master_string_list.append(init_dydt)
+        
+        
+        # surface uptake definition for each gas component
+        master_string_list.append('\n    #--------------Define surface uptake parameters for gas components---------------\n')
+        
+        # calculate surface fraction of each component
+        master_string_list.append('\n    #calculate surface fraction of each component\n')
+        for comp in mod_comps.values():
+            comp_no = comp.component_number
+            fs_string = f'    fs_{comp_no} = y[{comp_no}*Lorg+{comp_no}] / ('
+            
+            # loop over each other component and add to the fs_string
+            for ind, c in enumerate(mod_comps.values()):
+                if c.component_number != comp_no:
+                    cn = c.component_number
+                    if ind == 0:
+                        fs_string += f'y[{cn}*Lorg+{cn}] '
+                    else:
+                        fs_string += f'+ y[{cn}*Lorg+{cn}]'
+                 
+          # close the bracket on the demoninator
+            fs_string += ')\n'
+            
+            master_string_list.append(fs_string)
+        
+        # for each gaseous model component, calculate surface uptake/loss params
+        # first calculate surface coverage separately
+        
+        surf_cover_str = '\n    surf_cover = '
+        counter = 0
+        for comp in mod_comps.values():
+            if comp.gas == True:
+                comp_no = comp.component_number
+                if counter == 0:
+                    surf_cover_str += f'delta_{comp_no}**2 * y[{comp_no}*Lorg+{comp_no}] '
+                    counter += 1
+                else:
+                    surf_cover_str += f'+ delta_{comp_no}**2 * y[{comp_no}*Lorg+{comp_no}]'
+                
+            self.req_params.add(f'delta_{comp.component_number}')
+        
+        for comp in mod_comps.values():
+            if comp.gas == True:
+                comp_no = comp.component_number
+                
+                if comp.name != None:
+                    master_string_list.append(f'\n    # component {comp_no} surf params\n')
+                else:
+                    master_string_list.append(f'\n    # component {comp_no} ({comp.name}) surf params\n')
+                
+                # surface coverage
+                master_string_list.append(surf_cover_str)
+                
+                # alpha_s_X
+                alpha_s_str = f'\n    alpha_s_{comp_no} = alpha_s_0_{comp_no} * (1-surf_cover)'
+                master_string_list.append(alpha_s_str)
+                
+                # J_coll_X
+                j_coll_str = f'\n    J_coll_X_{comp_no} = Xgs_{comp_no} * w_{comp_no}/4'
+                master_string_list.append(j_coll_str)
+                
+                # J_ads_X
+                j_ads_str = f'\n    J_ads_X_{comp_no} = alpha_s_{comp_no} * J_coll_X_{comp_no}'
+                master_string_list.append(j_ads_str)
+                
+                # J_des_X
+                j_des_str = f'\n    J_des_X_{comp_no} = kd_X_{comp_no} * y[{comp_no}*Lorg+{comp_no}]'
+                master_string_list.append(j_des_str)
+                
+                self.req_params.add(f'alpha_s_0_{comp_no}')
+                self.req_params.add(f'Xgs_{comp_no}')
+                self.req_params.add(f'w_{comp_no}/4')
+                self.req_params.add(f'kd_X_{comp_no}')
+         
+        
+         # diffusion evolution
+        
+        master_string_list.append('\n    #--------------Bulk Diffusion evolution---------------\n')
+        
+        # calculate bulk fraction array for each component in each layer
+        master_string_list.append('\n    # Db and fb arrays')
+        for comp in mod_comps.values():
+            comp_no = comp.component_number
+            fb_string = f'\n    fb_{comp_no} = y[{comp_no-1}*Lorg+{comp_no}:{comp_no}*Lorg+{comp_no-1}+1] / ('
+            
+            # loop over each other component and add to the fb_string
+            for ind, c in enumerate(mod_comps.values()):
+                if c.component_number != comp_no:
+                    cn = c.component_number
+                    if ind == 0:
+                        fb_string += f'y[{cn-1}*Lorg+{cn}:{cn}*Lorg+{cn-1}+1] '
+                    else:
+                        fb_string += f'+ y[{cn-1}*Lorg+{cn}:{cn}*Lorg+{cn-1}+1]'
                         
-                               comp.surf_string += f'- y[{cn-1}*Lorg+{cn-1}] * y[{rn-1}*Lorg+{rn-1}] * k'
-                               comp.firstbulk_string += f'- y[{cn-1}*Lorg+{cn}] * y[{rn-1}*Lorg+{rn}] * k'
-                               comp.bulk_string += f'- y[{cn-1}*Lorg+{cn}+i] * y[{rn-1}*Lorg+{rn}+i] * k'
-                               comp.core_string += f'- y[{cn}*Lorg+{cn-1}] * y[{cn}*Lorg+{cn-1}] * k'
-                               
-                               # sorted array of cn and rn to define correct reaction constant (k)
-                               sorted_cn_rn = np.array([cn,rn]).sort()
-                               for n in sorted_cn_rn:
-                                   comp.surf_string += '_{n}'   
-                                   comp.firstbulk_string += '_{n}'
-                                   comp.bulk_string += '_{n}'
-                                   comp.core_string += '_{n}'
+            # close the bracket on the demoninator    
+            fb_string += ')'
+            
+            master_string_list.append(fb_string)
+            
+        master_string_list.append('\n')
+        # Db arrays for each component
+        for comp in mod_comps.values():
+            comp_no = comp.component_number
+            Db_arr_string = f'\n    Db_{comp_no}_arr = np.ones(Lorg) * Db_{comp_no}'
+            master_string_list.append(Db_arr_string)
+            
+            self.req_params.add(f'Db_{comp_no}')
+        
+        diff_regime = self.diffusion_regime
+        
+        master_string_list.append('\n\n    # surface diffusion\n')
+        #Ds
+        for s in diff_regime.Ds_strings:
+            master_string_list.append(four_space+s+'\n')
+        # ksb
+        for s in diff_regime.ksb_strings:
+            master_string_list.append(four_space+s+'\n')
+        # kbs
+        for s in diff_regime.kbs_strings:
+            master_string_list.append(four_space+s+'\n')
+        #kssb
+        for s in diff_regime.kssb_strings:
+            master_string_list.append(four_space+s+'\n')
+        #kbss
+        for s in diff_regime.kbss_strings:
+            master_string_list.append(four_space+s+'\n') 
+            
+        master_string_list.append('\n\n    # bulk diffusion\n')
+        #Db
+        for s in diff_regime.Db_strings:
+            master_string_list.append(four_space+s+'\n')
+        # kbb
+        for s in diff_regime.kbb_strings:
+            master_string_list.append(four_space+s+'\n')
+        
+         
+        '''
+        For each component, loop over the reaction scheme and identify which
+        rxns the component is involved in. Check if stoichiometry involved.
+        Add the reaction as necessary to the relevant string. Add diffusion
+        '''
+        # for each component in model components
+        for comp in mod_comps.values():
+            
+            # for each reaction (reactants and products)
+            for i in np.arange(len(self.reaction_scheme.reaction_tuples)):
+                reactants = self.reaction_scheme.reaction_tuples[i]
+                products = self.reaction_scheme.reaction_products[i]
+                if len(self.reaction_scheme.reactant_stoich) == 0:
+                    reactant_stoich = None
+                else:
+                    reactant_stoich = self.reaction_scheme.reactant_stoich[i]
+                
+                if len(self.reaction_scheme.product_stoich) == 0:
+                    product_stoich = None
+                else:
+                    product_stoich =  self.reaction_scheme.product_stoich[i]
+                
+                
+                # if this component is lost as a reactant
+                if int(comp.component_number) in reactants:
+                
+                    # build up surface, bulk and core strings for reactive loss
+                    # for each reactant
+                    
+                    # check if not first order decay (if len(reactants) != 1)
+                    if len(reactants) != 1:
+                        for ind, rn in enumerate(reactants):
+                            
+                            # add reaction strings for each reactant that isn't the current component
+                            # i.e. if the component number != reactant number
+                            if rn != int(comp.component_number):
+                                cn  = comp.component_number
+                                
+                                # if no stoich given, assume a coefficient of 1
+                                if reactant_stoich == None:
+                                
+                                # INCLUDE STOICHIOMETRY (MULTIPLY BY STOICH COEFF)
+                         
+                                    comp.surf_string += f'- y[{cn-1}*Lorg+{cn-1}] * y[{rn-1}*Lorg+{rn-1}] * k'
+                                    comp.firstbulk_string += f'- y[{cn-1}*Lorg+{cn}] * y[{rn-1}*Lorg+{rn}] * k'
+                                    comp.bulk_string += f'- y[{cn-1}*Lorg+{cn}+i] * y[{rn-1}*Lorg+{rn}+i] * k'
+                                    comp.core_string += f'- y[{cn}*Lorg+{cn-1}] * y[{cn}*Lorg+{cn-1}] * k'
+                                    
+                                    # sorted array of cn and rn to define correct reaction constant (k)
+                                    sorted_cn_rn = np.array([cn,rn])
+                                    sorted_cn_rn = np.sort(sorted_cn_rn)
+                                    # print(cn,rn)
+                                    # print(sorted_cn_rn)
+                                    k_string = 'k'
+                                    for n in sorted_cn_rn:
+                                        comp.surf_string += f'_{n}'   
+                                        comp.firstbulk_string += f'_{n}'
+                                        comp.bulk_string += f'_{n}'
+                                        comp.core_string += f'_{n}'
+                                        k_string += f'_{n}'
+                                        
+                                    self.req_params.add(k_string)
+                              
+                                # otherwise, add in the stoichiometry  
+                                else:
+                                    # extract the stoich coefficients from reactant_stoich tuple
+                                    react_1_stoich, react_2_stoich = reactant_stoich
+                                    
+                                    comp.surf_string += f'- {react_1_stoich} * y[{cn-1}*Lorg+{cn-1}] * {react_2_stoich} * y[{rn-1}*Lorg+{rn-1}] * k'
+                                    comp.firstbulk_string += f'- {react_1_stoich} * y[{cn-1}*Lorg+{cn}] * {react_2_stoich} * y[{rn-1}*Lorg+{rn}] * k'
+                                    comp.bulk_string += f'- {react_1_stoich} * y[{cn-1}*Lorg+{cn}+i] * {react_2_stoich} * y[{rn-1}*Lorg+{rn}+i] * k'
+                                    comp.core_string += f'- {react_1_stoich} * y[{cn}*Lorg+{cn-1}] * {react_2_stoich} * y[{cn}*Lorg+{cn-1}] * k'
+                                    
+                                    # sorted array of cn and rn to define correct reaction constant (k)
+                                    sorted_cn_rn = np.array([cn,rn]).sort()
+                                    k_string = 'k'
+                                    for n in sorted_cn_rn:
+                                        comp.surf_string += f'_{n}'   
+                                        comp.firstbulk_string += f'_{n}'
+                                        comp.bulk_string += f'_{n}'
+                                        comp.core_string += f'_{n}'
+                                        k_string += f'_{n}'
+                                        
+                                    self.req_params.add(k_string)
+                                    
+                                        
+                     # add in first order decay                       
+                    else:
+                         comp.surf_string += f'- y[{cn-1}*Lorg+{cn-1}] * k1_{cn}'
+                         comp.firstbulk_string += f'- y[{cn-1}*Lorg+{cn}] * k1_{cn}'
+                         comp.bulk_string += f'- y[{cn-1}*Lorg+{cn}+i] * k1_{cn}'
+                         comp.core_string += f'- y[{cn}*Lorg+{cn-1}] * k1_{cn}'
+                         
+                         self.req_params.add(f'k1_{cn}')
+                     
+                if int(comp.component_number) in products:
+                    for ind, rn in enumerate(products):
+                            
+                            # add reaction strings for each reactant that isn't the current component
+                            # i.e. if the component number != product number (rn)
+                            if rn != int(comp.component_number):
+                                cn  = comp.component_number
+                                
+                                # if no stoich given, assume a coefficient of 1
+                                if product_stoich == None:
+                                
+                                # INCLUDE STOICHIOMETRY (MULTIPLY BY STOICH COEFF)
+                         
+                                    comp.surf_string += f'+ y[{cn-1}*Lorg+{cn-1}] * y[{rn-1}*Lorg+{rn-1}] * k'
+                                    comp.firstbulk_string += f'+ y[{cn-1}*Lorg+{cn}] * y[{rn-1}*Lorg+{rn}] * k'
+                                    comp.bulk_string += f'+ y[{cn-1}*Lorg+{cn}+i] * y[{rn-1}*Lorg+{rn}+i] * k'
+                                    comp.core_string += f'+ y[{cn}*Lorg+{cn-1}] * y[{cn}*Lorg+{cn-1}] * k'
+                                    
+                                    # sorted array of cn and rn to define correct reaction constant (k)
+                                    sorted_cn_rn = np.array([cn,rn])
+                                    sorted_cn_rn = np.sort(sorted_cn_rn)
+                                    k_string = 'k'
+                                    for n in sorted_cn_rn:
+                                        comp.surf_string += f'_{n}'   
+                                        comp.firstbulk_string += f'_{n}'
+                                        comp.bulk_string += f'_{n}'
+                                        comp.core_string += f'_{n}'
+                                        k_string += f'_{n}'
+                                    
+                                    self.req_params.add(k_string)
+                              
+                                # otherwise, add in the stoichiometry  
+                                else:
+                                    # extract the stoich coefficients from product_stoich tuple
                                    
-                               
-                       
+                                    stoich = product_stoich[ind]
+                                    
+                                    comp.surf_string += f'+ {stoich} * y[{cn-1}*Lorg+{cn-1}] * y[{rn-1}*Lorg+{rn-1}] * k'
+                                    comp.firstbulk_string += f'+ {stoich}* y[{cn-1}*Lorg+{cn}] * y[{rn-1}*Lorg+{rn}] * k'
+                                    comp.bulk_string += f'+ {stoich} * y[{cn-1}*Lorg+{cn}+i] * y[{rn-1}*Lorg+{rn}+i] * k'
+                                    comp.core_string += f'+ {stoich} * y[{cn}*Lorg+{cn-1}] * y[{cn}*Lorg+{cn-1}] * k'
+                                    
+                                    # sorted array of cn and rn to define correct reaction constant (k)
+                                    sorted_cn_rn = np.array([cn,rn])
+                                    sorted_cn_rn = np.sort(sorted_cn_rn)
+                                    k_string = 'k'
+                                    for n in sorted_cn_rn:
+                                        comp.surf_string += f'_{n}'   
+                                        comp.firstbulk_string += f'_{n}'
+                                        comp.bulk_string += f'_{n}'
+                                        comp.core_string += f'_{n}'
+                                        k_string += f'_{n}'
+                                        
+                                    self.req_params.add(k_string)
+                                    
+             
+            
+            # account for volatilisation from surface
+            
+            # append the completed strings for this component to the master string list  
+            master_string_list.append(f'\n    #----component number {comp.component_number}, {comp.name}----')
+            master_string_list.append('\n'+four_space+comp.surf_string+'\n')
+            master_string_list.append(four_space+comp.firstbulk_string+'\n')
+            master_string_list.append(four_space+four_space+comp.bulk_string+'\n')
+            master_string_list.append(four_space+comp.core_string+'\n')                     
+        
+        # unpack all params from params dictionary
+        # doing this here because self.req_params built up in the model building
+        # process
+        unpack_params_string_list = []
+        unpack_params_string_list.append('\n    #--------------Unpack parameters---------------\n')
+        
+        # need to iterate over a list representation of req_params 
+        # otherwise set changes size during iteration (k_surf defined and added
+        # to req_params set in loop)
+        
+        list_req_params = list(self.req_params)
+        for param_str in list_req_params:
+            param_unpack_str = '\n    ' + param_str + ' = param_dict[' + '"' + param_str + '"]'
+            # add in if varying param == True
+            
+            unpack_params_string_list.append(param_unpack_str)
+            
+            # convert to surface reaction rates from bulk reaction rates
+            if 'k_' in param_str and '_surf' not in param_str:
+                k_surf_string = '\n    ' + param_str + '_surf = ' + param_str + ' * scale_bulk_to_surf'
+                
+                self.req_params.add(param_str+'_surf')
+                unpack_params_string_list.append(k_surf_string)
+            
+        # wrapping up the dydt function
+        master_string_list.append('\n')
+        master_string_list.append(four_space+'return dydt')
+        
+        # open and write to the model .py file 
+        filename = date + '_' + mod_type + '_' + rxn_name + '_' + extention + '.py'
+        
+        with open(filename,'w') as f:
+            f.writelines(heading_strings)
+            f.writelines(func_def_strings)
+            f.writelines(unpack_params_string_list)
+            f.writelines(master_string_list)
                
+           
+                
        
     def __call__(self):
         '''
@@ -728,12 +908,39 @@ init = ReactionScheme(n_components=3,
                       reaction_tuple_list=[(1,2)],
                       products_of_reactions_list=[(3,)])
                       
-# something that will tell me what each component                       
+                       
 diff_dict = {'1' : None,
              '2': (3,1),
-             }                     
-                      
-                      
+             '3':None}    
+                 
+# make model components                      
+OA = ModelComponent(1,init,name='Oleic acid')
+O3 = ModelComponent(2,init,gas=True,name='Ozone')  
+prod = ModelComponent(3,init)
+
+# collect into a dict
+# make_component_dict function? 
+model_components = {'1':OA,
+                    '2':O3,
+                    '3':prod}
+
+# make diffusion regime
+diff_regime = DiffusionRegime(model_components,diff_dict=diff_dict)
+diff_regime()
+
+# build model
+
+model_constructor = ModelBuilder(init,model_components,diff_regime,[1,2,3],[3,2,1],
+                                 100)
+
+model_constructor.build()
+
+
+
+
+
+
+                    
                       
                       
                       
