@@ -29,9 +29,9 @@ for future compartmental model implementations
 
 - Get Reaction Scheme to print out a readable reaction scheme for the user ~~
 
-- Need to make it so that if nothing is supplied to diffusion dict for a component by user, deal with it in DiffusionEvolution
+- Need to make it so that if nothing is supplied to diffusion dict for a component by user, deal with it in DiffusionRegime $
 
 - Add to ModelBuilder.req_params as I build the model in ModelBuilder.build(), then define "unpack parameters" section at the end of the build() function
-	- when unpacking, add in if vary == True, redefine the parameter to be X0[index] (X0 being an array of varying params supplied to the minimiser)
+	- Add varying_parameters to the Simulate object later
 
 - utility functions - make_component_dict()
