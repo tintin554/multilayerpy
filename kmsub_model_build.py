@@ -30,7 +30,7 @@ class ReactionScheme:
     '''
     
     def __init__(self,name='rxn_scheme',n_components=None,
-                 reaction_tuple_list=None,products_of_reactions_list=None,
+                 reaction_tuple_list=None,products_of_reactions_list=[],
                  component_names=[],reactant_stoich=None, product_stoich=None):
     
         # name of reaction scheme
@@ -406,12 +406,15 @@ class DiffusionRegime():
                 
             # define kbb and kbs/ksb strings for each component
             if self.model_components_dict[f'{i+1}'].gas == True:
-                ksb_string = 'ksb_{} = H_{} * kbs_{} / Td_{} / (W_{}*alpha_s_{}/4) '.format(i+1,i+1,i+1,i+1,i+1,i+1)
+                Hcc_definition = f'H_cc_{i+1} = H_{i+1} * R * T'
+                ksb_string = 'ksb_{} = H_cc_{} * kbs_{} / Td_{} / (w_{}*alpha_s_{}/4) '.format(i+1,i+1,i+1,i+1,i+1,i+1)
+                ksb_string_list.append(Hcc_definition)
                 ksb_string_list.append(ksb_string)
                 
                 req_diff_params.add(f'H_{i+1}')
                 req_diff_params.add(f'Td_{i+1}')
-                req_diff_params.add(f'W_{i+1}')
+                req_diff_params.add(f'w_{i+1}')
+                req_diff_params.add(f'T')
                 
                 kbs_string = 'kbs_{} = (8/np.pi) * Ds_{} / layer_thick[0] '.format(i+1,i+1)
                 # add the molec. diameters of other components in the surface layer
@@ -510,9 +513,12 @@ class ModelBuilder():
        # compartmental models
        self.file_string_list = []
        
+       self.filename = None
+       
        self.constructed = False
        
-    def build(self, name_extention='', date_tag=False, first_order_decays=None, **kwargs):
+    def build(self, name_extention='', date_tag=False, first_order_decays=None,
+              use_scaled_k_surf=False, **kwargs):
         '''
         Builds the model and saves it to a separate .py file
         Different for different model types 
@@ -592,10 +598,10 @@ class ModelBuilder():
             if comp.gas == True:
                 comp_no = comp.component_number
                 if counter == 0:
-                    surf_cover_str += f'delta_{comp_no}**2 * y[{comp_no}*Lorg+{comp_no}] '
+                    surf_cover_str += f'delta_{comp_no}**2 * y[{comp_no-1}*Lorg+{comp_no-1}] '
                     counter += 1
                 else:
-                    surf_cover_str += f'+ delta_{comp_no}**2 * y[{comp_no}*Lorg+{comp_no}]'
+                    surf_cover_str += f'+ delta_{comp_no}**2 * y[{comp_no-1}*Lorg+{comp_no-1}]'
                 
             self.req_params.add(f'delta_{comp.component_number}')
         
@@ -624,14 +630,15 @@ class ModelBuilder():
                 master_string_list.append(j_ads_str)
                 
                 # J_des_X
-                j_des_str = f'\n    J_des_X_{comp_no} = kd_X_{comp_no} * y[{comp_no}*Lorg+{comp_no}]'
+                j_des_str = f'\n    J_des_X_{comp_no} = (1 / Td_{comp_no}) * y[{comp_no-1}*Lorg+{comp_no-1}]'
                 master_string_list.append(j_des_str)
                 
                 self.req_params.add(f'alpha_s_0_{comp_no}')
                 self.req_params.add(f'Xgs_{comp_no}')
                 self.req_params.add(f'w_{comp_no}')
-                self.req_params.add(f'kd_X_{comp_no}')
-                self.req_params.add('scale_bulk_to_surf')
+                #self.req_params.add(f'kd_X_{comp_no}')
+                if use_scaled_k_surf:
+                    self.req_params.add('scale_bulk_to_surf')
                 
                 # add surface ads/des to the surface string of the gaseous component
                 comp.surf_string += f'+ J_ads_X_{comp_no} - J_des_X_{comp_no}'
@@ -723,7 +730,13 @@ class ModelBuilder():
             # for each reaction (reactants and products)
             for i in np.arange(len(self.reaction_scheme.reaction_tuples)):
                 reactants = self.reaction_scheme.reaction_tuples[i]
-                products = self.reaction_scheme.reaction_products[i]
+                
+                # if no products given in product list, default to the empty reaction products list
+                try:
+                    products = self.reaction_scheme.reaction_products[i]
+                except IndexError:
+                    products = self.reaction_scheme.reaction_products
+                    
                 if len(self.reaction_scheme.reactant_stoich) == 0:
                     reactant_stoich = None
                 else:
@@ -943,8 +956,12 @@ class ModelBuilder():
         
         unpack_params_string_list.append('\n    #--------------Unpack parameters (random order)---------------\n')
         
+        
         # need the scale_bulk_to_surf defined first, order of rest does not matter
-        unpack_params_string_list.append('\n    scale_bulk_to_surf = param_dict["scale_bulk_to_surf"]')
+        # if k_surf to be defined explicitly, do not use scale_bulk_to_surf
+        # if use_scaled_k_surf:
+        #     unpack_params_string_list.append('\n    scale_bulk_to_surf = param_dict["scale_bulk_to_surf"]')
+        
         
         # need to iterate over a list representation of req_params 
         # otherwise set changes size during iteration (k_surf defined and added
@@ -953,19 +970,48 @@ class ModelBuilder():
         
         
         list_req_params = list(self.req_params)
+        # unpacking parameter values from dict of Parameter objects
+        unpack_params_string_list.append('\n    try:')
         for param_str in list_req_params:
-            param_unpack_str = '\n    ' + param_str + ' = param_dict[' + '"' + param_str + '"]'
+            
+            param_unpack_str = '\n        ' + param_str + ' = param_dict[' + '"' + param_str + '"].value'
             # add in if varying param == True
             
             unpack_params_string_list.append(param_unpack_str)
             
             # convert to surface reaction rates from bulk reaction rates
             if 'k_' in param_str and '_surf' not in param_str:
-                k_surf_string = '\n    ' + param_str + '_surf = ' + param_str + ' * scale_bulk_to_surf'
+                k_surf_string = '\n        ' + param_str + '_surf = ' + param_str + ' * scale_bulk_to_surf'
                 
-                self.req_params.add(param_str+'_surf')
+                if not use_scaled_k_surf:
+                    k_surf_string = '\n        ' + param_str + '_surf' +' = param_dict[' + '"' + param_str+'_surf' + '"].value'
+                
+                
+                    self.req_params.add(param_str+'_surf')
                 unpack_params_string_list.append(k_surf_string)
+                
+        # unpacking parameter values from dict of non-Parameter objects (they would throw an attribute error)
+        unpack_params_string_list.append('\n\n    except AttributeError:')
+        for param_str in list_req_params:
             
+            param_unpack_str = '\n        ' + param_str + ' = param_dict[' + '"' + param_str + '"]'
+            # add in if varying param == True
+            
+            unpack_params_string_list.append(param_unpack_str)
+            
+            # convert to surface reaction rates from bulk reaction rates
+            if 'k_' in param_str and '_surf' not in param_str:
+                k_surf_string = '\n        ' + param_str + '_surf = ' + param_str + ' * scale_bulk_to_surf'
+                
+                if not use_scaled_k_surf:
+                    k_surf_string = '\n        ' + param_str + '_surf' +' = param_dict[' + '"' + param_str+'_surf' + '"]'
+                
+                
+                    self.req_params.add(param_str+'_surf')
+                unpack_params_string_list.append(k_surf_string)
+                
+        # define the gas constant        
+        unpack_params_string_list.append('\n    R = 82.0578') 
         
         # wrapping up the dydt function
         master_string_list.append('\n')
@@ -977,11 +1023,15 @@ class ModelBuilder():
         else:
             filename =  mod_type.lower() + '_' + rxn_name + extention + '.py'
         
+        self.filename = filename
+        
         with open(filename,'w') as f:
             f.writelines(heading_strings)
             f.writelines(func_def_strings)
             f.writelines(unpack_params_string_list)
             f.writelines(master_string_list)
+            
+        self.constructed = True
                
            
                 
@@ -1024,10 +1074,19 @@ init = ReactionScheme(n_components=3,
                       reaction_tuple_list=[(1,2)],
                       products_of_reactions_list=[(3,)])
                       
+    
+# init = ReactionScheme(n_components=3,
+#                       reaction_tuple_list=[(1,2)],
+#                       product_tuple=[(3,)])
                        
 diff_dict = {'1' : None,
-             '2': (3,1),
+             '2': None,
              '3':None}    
+
+                       
+# diff_dict = {'1' : None,
+#              '2': None,
+#              '3': None} 
                  
 # make model components                      
 OA = ModelComponent(1,init,name='Oleic acid')

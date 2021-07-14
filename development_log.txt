@@ -3,7 +3,7 @@ DEVELOPMENT LOG MULTI-LAYER MODEL BUILDER:
 -------------MODEL BUILD-------------
 - Error handling
 - better doc strings
-
+- UNIT TESTS
 - Model component set attributes
 - ModelComponent include volatile consider
 - model component construct strings in __call__ function and add in an "offset" parameter 
@@ -19,7 +19,7 @@ for future compartmental model implementations
 
 - removed w and gas_conc from ModelComponent $
 
-- need to consider stoichiometry ~~
+- need to consider stoichiometry ~~ TEST IT
 
 - Make a Parameter class with name, bounds, value etc. ~~
 
@@ -34,4 +34,5 @@ for future compartmental model implementations
 - Add to ModelBuilder.req_params as I build the model in ModelBuilder.build(), then define "unpack parameters" section at the end of the build() function
 	- Add varying_parameters to the Simulate object later
 
-- utility functions - make_component_dict()
+- utility functions - make_component_dict()/make Parameters object (?)
+- Add definition of Xgs with correction factor if small Kn
