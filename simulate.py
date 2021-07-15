@@ -215,7 +215,41 @@ def initial_concentrations(bulk_conc_dict,surf_conc_dict,n_layers):
     return Y0
         
 
+def make_layers(n_layers,bulk_radius,geometry):
+    '''
+    defines the volume, surface area and layer thickness for each model layer
+    
+    Returns a tuple of V, A and layer_thick arrays
+    
+    bulk radius is normally defined as the particle radius - molecular diameter
+    
+    '''
+    
+        
+    delta = bulk_radius/n_layers
+    
+    if geometry == 'spherical':
+    
+        V = np.zeros(n_layers)
+        A = np.zeros(n_layers)
+        for i in np.arange(n_layers):
+            layerno = i + 1
+            V[i] = (4/3) * np.pi * ((bulk_radius-(layerno-1)*delta)**3 - (bulk_radius-layerno*delta)**3)    
+            A[i] = 4 * np.pi * (bulk_radius-(layerno-1)*delta)**2
+        
+        layer_thick = np.ones(n_layers) * delta
+        
+    elif geometry == 'film':
+        
+        # define the square cross-section of the film to model
+        square_length = 1e-4 # cm (1 µm)
+        
+        V = np.ones(n_layers) * square_length * square_length * delta
+        A = np.ones(n_layers) * square_length * square_length
 
+        layer_thick = np.ones(n_layers) * delta
+        
+    return (V, A, layer_thick)
  
 
 
