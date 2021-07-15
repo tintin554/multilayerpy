@@ -184,7 +184,39 @@ class Simulate():
         
 
 
+def initial_concentrations(bulk_conc_dict,surf_conc_dict,n_layers):
+    '''
+    Returns an array of initial bulk and surface concentrations (Y0)
+    
+    bulk_conc: dict of initial bulk concentration of each component (key = component number)
+    surf_conc: dict of initial surf concentration of each component (key = component number)
+    n_layers: number of model layers
+    '''
+    
+    n_comps = len(bulk_conc_dict)
+    
+    # initialise the Y0 array
+    Y0 = np.zeros(n_layers * n_comps + n_comps)
+    
+    # for each model component 
+    for i in range(n_comps):
+        
+        bulk_conc_val = bulk_conc_dict[f'{i+1}']
+        surf_conc_val = surf_conc_dict[f'{i+1}']
+        
+        # define surface conc
+        Y0[i*n_layers+i] = surf_conc_val
+        
+        # define bulk concs
+        for k in np.arange(n_layers*i+1+i,(i+1)*n_layers+i+1):
+            Y0[k] = bulk_conc_val
+        
+    
+    return Y0
+        
 
+
+ 
 
 
 
