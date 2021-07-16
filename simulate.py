@@ -128,7 +128,7 @@ class Simulate():
 
         # function to plot output
         
-    def plot(self,norm=False):
+    def plot(self,norm=False,data=None):
         model_output = self.model_output.y.T 
         
         n_layers = self.run_params['n_layers']
@@ -177,11 +177,44 @@ class Simulate():
             plt.ylabel('[component] / [component]$_{max}$',fontsize='large')
         else:
             plt.ylabel('N$_{component}$ / molec.',fontsize='large')
+        
+        # plot data if provided, column 0 = time, column 1 = value
+        # optional column 3 = uncertainty
+        if type(data) != None:
+            rows, cols = data.shape
+            if cols == 2:
+                plt.scatter(data[:,0],data[:,1],facecolors='none',edgecolors='k',label='data')
+            else:
+                plt.errorbar(data[:,0],data[:,1],yerr=data[:,2],mfc='none',
+                             mec='k',linestyle='none',label='data',marker='o',color='k')
+        
         plt.xlabel('Time')
         plt.legend()
         plt.tight_layout()
         plt.show()
         
+    def plot_bulk_concs(self,cmap='viridis'):
+        
+        n_comps = len(self.bulk_concs)
+        
+        # for each component, plot a heatmap plot
+        
+        for i in range(n_comps):
+            comp_name = self.model.model_components[f'{i+1}'].name
+            comp_bulk_conc = self.bulk_concs[f'{i+1}'].T
+            
+            plt.figure()
+            plt.title(comp_name,fontsize='large')
+            plt.pcolormesh(comp_bulk_conc,cmap=cmap)
+            plt.xlabel('Time points',fontsize='large')
+            plt.ylabel('Layer number',fontsize='large')
+            
+            # invert y-axis so that layer 0 is at the top of the plot
+            plt.gca().invert_yaxis()
+            cb=plt.colorbar()
+            cb.set_label(label='conc. / cm$^{-3}$',fontsize='large',size='large')
+            plt.tight_layout()
+            plt.show()
 
 
 def initial_concentrations(bulk_conc_dict,surf_conc_dict,n_layers):
