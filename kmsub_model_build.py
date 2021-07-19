@@ -259,7 +259,7 @@ class DiffusionRegime():
         self.diff_dict = diff_dict
         
         # make sure diff_dict includes all model components
-        error_msg = f"diffusion dict length = {len(diff_dict)}, model components dict length = {len(model_components)}. They need to be the same."
+        error_msg = f"diffusion dict length = {len(diff_dict)}, model components dict length = {len(model_components_dict)}. They need to be the same."
         assert len(diff_dict) == len(model_components_dict), error_msg
         
         # list of strings descibing kbb for each component
@@ -1067,54 +1067,7 @@ class Parameter():
        
         
 
-    
-# testing 123------------------------------------------------------------------
-    
-init = ReactionScheme(n_components=3,
-                      reaction_tuple_list=[(1,2)],
-                      products_of_reactions_list=[(3,)])
-                      
-    
-# init = ReactionScheme(n_components=3,
-#                       reaction_tuple_list=[(1,2)],
-#                       product_tuple=[(3,)])
-                       
-diff_dict = {'1' : None,
-             '2': None,
-             '3':None}    
-
-                       
-# diff_dict = {'1' : None,
-#              '2': None,
-#              '3': None} 
-                 
-# make model components                      
-OA = ModelComponent(1,init,name='Oleic acid')
-O3 = ModelComponent(2,init,gas=True,name='Ozone')  
-prod = ModelComponent(3,init)
-
-# collect into a dict
-# make_component_dict function? 
-model_components = {'1':OA,
-                    '2':O3,
-                    '3':prod}
-
-# make diffusion regime
-diff_regime = DiffusionRegime(model_components,diff_dict=diff_dict)
-diff_regime()
-
-# build model
-
-model_constructor = ModelBuilder(init,model_components,diff_regime,[1,2,3],[3,2,1],
-                                 100)
-
-model_constructor.build(date=False)
-
-
-
-
-
-
+ 
                     
                       
                       

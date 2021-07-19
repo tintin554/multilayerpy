@@ -97,7 +97,7 @@ class Simulate():
                                                  Y0,t_eval=tspan,method=ode_integrate_method)
         end_int = time.time()
                 
-        print(f'Model run took {end_int-start_int:.2f} s')
+        #print(f'Model run took {end_int-start_int:.2f} s')
         
         # return model output and assign dicts of surf + bulk concs
         
@@ -284,7 +284,27 @@ def make_layers(n_layers,bulk_radius,geometry):
         
     return (V, A, layer_thick)
  
-
+    
+class Data():
+    
+    def __init__(self,data,n_skipped_rows=0,norm=False,norm_index=0):
+        
+        # if a filename string is supplied, read in the data as an array
+        if type(data) == str:
+            data = np.genfromtxt(data,skip_header=n_skipped_rows)
+            
+        self.x = data[:,0]
+        self.y = data[:,1]
+        self.y_err = np.zeros(len(self.y))
+        
+        nrows, ncols = data.shape
+        if ncols == 3:
+            self.y_err = data[:,2]
+            
+        if norm == True:
+            self.y = self.y / self.y[norm_index]
+            self.y_err = self.y_err / self.y[norm_index]
+        
 
 
 # function to make Y0?

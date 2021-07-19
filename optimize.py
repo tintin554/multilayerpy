@@ -11,6 +11,7 @@ import simulate
 import scipy.integrate as integrate
 import kmsub_model_build
 import importlib
+from scipy.optimize import differential_evolution, minimize
 
 
 class Optimizer():
@@ -26,7 +27,7 @@ class Optimizer():
         
         # make data into a Data object if not already
         if type(data) != simulate.Data:
-            self.data = simulate.Data(data)
+            self.data = simulate.Data(data,norm=True)
         else:
             self.data = data
         
@@ -37,31 +38,33 @@ class Optimizer():
         
         cost = self.cost
         expt = self.data
-        expt_y = expt[:,1]
+        expt_y = expt.y
         
         if cost == 'MSE':
             
-            val = (np.square(expt_y-model_y) ** 2)/len(expt_y)
+            val = np.sum((np.square(expt_y-model_y) ** 2)/len(expt_y))
         
         self.cost_func_val = val
         return val
     
-    def fit(self,method='least_squares',component_no='1'):
+    def fit(self,method='least_squares',component_no='1',n_workers=1):
 
-        sim = self.simulate_object
+        sim = self.simulate
         
         # identify varying params, append to varying_params list and record order
         varying_params = []
         varying_param_keys = []
+        param_bounds = []
         
         for param in sim.parameters:
             if sim.parameters[param].vary == True:
                 varying_params.append(sim.parameters[param].value)
                 varying_param_keys.append(param)
+                param_bounds.append(sim.parameters[param].bounds)
                 
         
         
-        def minimize_me(varying_param_vals,varying_param_keys,sim,component_no):
+        def minimize_me(varying_param_vals,varying_param_keys,sim,component_no=component_no):
             
             # unpack required params to run the model
             n_layers = sim.run_params['n_layers']
@@ -74,6 +77,7 @@ class Optimizer():
             layer_thick = sim.run_params['layer_thick']
             Y0 = sim.run_params['Y0']
             
+            # change the simulate object parameters 
             for ind, param in enumerate(varying_param_keys):
                 sim.parameters[param].value = varying_param_vals[ind]
             
@@ -86,7 +90,7 @@ class Optimizer():
             
             # t_eval for comparing mod + expt at the same timepoints
             # assuming expt time axis is in s
-            t_eval = self.data[:,0]
+            t_eval = self.data.x
             
           
             model_output = integrate.solve_ivp(lambda t, y:model_import.dydt(t,y,sim.parameters,V,A,n_layers,layer_thick),
@@ -119,15 +123,41 @@ class Optimizer():
             bulk_total_num = np.sum(bulk_num,axis=1)
             total_number_molecules = bulk_total_num + surf_num
             
-            # cost func normalises the data, so model output will be normalised 
+            # the data is normalised, so model output will be normalised 
             norm_number_molecules = total_number_molecules / total_number_molecules[0]
-            # CARRY ON COST FUNC CALC ETC.
             
+            # calculate the cost function
             
+            cost_val = self.cost_func(norm_number_molecules)
             
+            #print(cost_val)
+            return cost_val
+        
+        if method == 'differential_evolution':
+        
+            result = differential_evolution(minimize_me,param_bounds,
+                                        (varying_param_keys,sim,component_no),
+                                        disp=True,workers=n_workers)
+        elif method == 'least_squares':
+            #print(varying_params)
+            result = minimize(minimize_me,varying_params,args=(varying_param_keys,sim,component_no),
+                          method='Nelder-Mead',bounds=param_bounds,options={'disp':True, 'return_all':True})
             
-            
-            
-            
-            
-            
+        # print out results
+        
+        print('optimised params:')
+        print(result.x)
+        print('Success=:',result.success,',termination message:',result.message)
+        print('number of iters:',result.nit)
+        print('final cost function value = ')
+        print(result.fun)
+        
+        return result
+        
+
+
+
+
+
+
+    
