@@ -480,7 +480,6 @@ class ModelBuilder():
     '''
     
     def __init__(self,reaction_scheme,model_components_dict,diffusion_regime,
-                 volume_layers,area_layers,n_layers,
                  model_type='KM_SUB',geometry='spherical'):
        '''
        XXX
@@ -493,12 +492,6 @@ class ModelBuilder():
        self.diffusion_regime = diffusion_regime # error if not dict
        
        self.geometry = geometry
-       
-       self.volume_layers = volume_layers
-       
-       self.area_layers = area_layers
-       
-       self.n_layers = n_layers
        
        self.model_type = model_type # error if not in accepted types
        
@@ -900,7 +893,7 @@ class ModelBuilder():
                             
                             # sorted array of cn and rn to define correct reaction constant (k)
                             sorted_r1_r2 = np.array([r1,r2])
-                            sorted_r1_r2 = np.sort(sorted_cn_rn)
+                            sorted_r1_r2 = np.sort(sorted_r1_r2)
                             # print(cn,rn)
                             # print(sorted_cn_rn)
                             k_string = 'k'
@@ -910,6 +903,8 @@ class ModelBuilder():
                                 comp.bulk_string += f'_{n}'
                                 comp.core_string += f'_{n}'
                                 k_string += f'_{n}'
+                            #print('sorted r1 r2: ',sorted_r1_r2)
+                            #print(f'Comp: {comp.component_number}, reactants = {r1} + {r2}, k_string: {k_string}')
                             
                             comp.surf_string += '_surf'    
                             #self.req_params.add(k_string)
@@ -1057,7 +1052,7 @@ class Parameter():
     def __init__(self, value=np.inf, name=None,bounds=None, vary=False):
         
         self.name = name
-        
+        self.bounds = None
         # define bounds if given
         if bounds is not None:
             self.bounds = bounds

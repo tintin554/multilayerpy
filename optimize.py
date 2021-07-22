@@ -152,6 +152,8 @@ class Optimizer():
         print('final cost function value = ')
         print(result.fun)
         
+       
+        
         return result
         
 

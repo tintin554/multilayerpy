@@ -180,7 +180,8 @@ class Simulate():
         
         # plot data if provided, column 0 = time, column 1 = value
         # optional column 3 = uncertainty
-        if type(data) != None:
+
+        try:
             rows, cols = data.shape
             if cols == 2:
                 plt.scatter(data[:,0],data[:,1],facecolors='none',edgecolors='k',label='data')
@@ -188,10 +189,17 @@ class Simulate():
                 plt.errorbar(data[:,0],data[:,1],yerr=data[:,2],mfc='none',
                              mec='k',linestyle='none',label='data',marker='o',color='k')
         
-        plt.xlabel('Time')
-        plt.legend()
-        plt.tight_layout()
-        plt.show()
+            plt.xlabel('Time')
+            plt.legend()
+            plt.tight_layout()
+            plt.show()
+        except:
+            
+            plt.xlabel('Time')
+            plt.legend()
+            plt.tight_layout()
+            plt.show()
+            
         
     def plot_bulk_concs(self,cmap='viridis'):
         
