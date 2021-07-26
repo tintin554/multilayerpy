@@ -186,57 +186,75 @@ class ModelComponent:
         
         self.reactions_added = False
         
-        # define initial strings for each differential equation to be solved
-        # remembering Python counts from 0
-        if component_number == 1:
-            self.surf_string = 'dydt[0] = '  
-            self.firstbulk_string = 'dydt[1] = '
-            self.bulk_string = 'dydt[{}*Lorg+{}+i] = '.format(component_number-1,component_number)
-            self.core_string = 'dydt[{}*Lorg+{}] = '.format(component_number,component_number-1)
-        else:
-            self.surf_string = 'dydt[{}*Lorg+{}] = '.format(component_number-1,component_number-1)
-            self.firstbulk_string = 'dydt[{}*Lorg+{}] = '.format(component_number-1,component_number)
-            self.bulk_string = 'dydt[{}*Lorg+{}+i] = '.format(component_number-1,component_number)
-            self.core_string = 'dydt[{}*Lorg+{}] = '.format(component_number,component_number-1)
-        
-        # add to initial strings later with info from ReactionScheme
-        
-        # add mass transport terms to each string
-        
-        #surf transport different for gases and non-volatiles
-        if self.gas == True:
+        if self.reaction_scheme.model_type.lower() == 'kmsub':
+            # define initial strings for each differential equation to be solved
+            # remembering Python counts from 0
             if component_number == 1:
-                self.surf_string += 'kbs_1 * y[1] - ksb_1 * y[0] '
-                self.firstbulk_string += '(ksb_1 * y[0] - kbs_1 * y[1]) * (A[0]/V[0]) + kbbx_1[0] * (y[2] - y[1]) * (A[1]/V[0]) '
-                self.bulk_string += 'kbbx_1[i] * (y[{}*Lorg+{}+(i-1)] - y[{}*Lorg+{}+i]) * (A[i]/V[i]) + kbbx_1[i+1] * (y[{}*Lorg+{}+(i+1)] - y[{}*Lorg+{}+i]) * (A[i+1]/V[i]) '.format(component_number-1,component_number,
-                                           component_number-1,component_number,component_number-1,component_number,component_number-1,component_number)
-                self.core_string += 'kbbx_1[-1] * (y[{}*Lorg+{}-1] - y[{}*Lorg+{}]) * (A[-1]/V[-1]) '.format(component_number,component_number-1,component_number,component_number-1)
+                self.surf_string = 'dydt[0] = '  
+                self.firstbulk_string = 'dydt[1] = '
+                self.bulk_string = 'dydt[{}*Lorg+{}+i] = '.format(component_number-1,component_number)
+                self.core_string = 'dydt[{}*Lorg+{}] = '.format(component_number,component_number-1)
             else:
-                self.surf_string += 'kbs_{} * y[{}*Lorg+{}] - ksb_{} * y[{}*Lorg+{}] '.format(component_number,component_number-1,component_number,component_number,component_number-1,component_number-1)
-                self.firstbulk_string += '(ksb_{} * y[{}*Lorg+{}] - kbs_{} * y[{}*Lorg+{}]) * (A[0]/V[0]) + kbbx_{}[0] * (y[{}*Lorg+{}] - y[{}*Lorg+{}]) * (A[1]/V[0]) '.format(component_number,component_number-1,component_number-1,component_number,
-                                          component_number-1,component_number,component_number,component_number-1,component_number+1,component_number-1,component_number)
-                self.bulk_string += 'kbbx_{}[i] * (y[{}*Lorg+{}+(i-1)] - y[{}*Lorg+{}+i]) * (A[i]/V[i]) + kbbx_{}[i+1] * (y[{}*Lorg+{}+(i+1)] - y[{}*Lorg+{}+i]) * (A[i+1]/V[i]) '.format(component_number,component_number-1,component_number,
-                                           component_number-1,component_number,component_number,component_number-1,component_number,component_number-1,component_number)
-                self.core_string += 'kbbx_{}[-1] * (y[{}*Lorg+{}-1] - y[{}*Lorg+{}]) * (A[-1]/V[-1]) '.format(component_number,component_number,component_number-1,component_number,component_number-1)
-        else:
-            if component_number == 1:
-                self.surf_string += 'kbss_1 * y[1] - kssb_1 * y[0] '
-                self.firstbulk_string += '(kssb_1 * y[0] - kbss_1 * y[1]) * (A[0]/V[0]) + kbby_1[0] * (y[2] - y[1]) * (A[1]/V[0]) '
-                self.bulk_string += 'kbby_1[i] * (y[{}*Lorg+{}+(i-1)] - y[{}*Lorg+{}+i]) * (A[i]/V[i]) + kbby_1[i+1] * (y[{}*Lorg+{}+(i+1)] - y[{}*Lorg+{}+i]) * (A[i+1]/V[i]) '.format(component_number-1,component_number,
-                                           component_number-1,component_number,component_number-1,component_number,component_number-1,component_number)
-                self.core_string += 'kbby_1[-1] * (y[{}*Lorg+{}-1] - y[{}*Lorg+{}]) * (A[-1]/V[-1]) '.format(component_number,component_number-1,component_number,component_number-1)
-                
+                self.surf_string = 'dydt[{}*Lorg+{}] = '.format(component_number-1,component_number-1)
+                self.firstbulk_string = 'dydt[{}*Lorg+{}] = '.format(component_number-1,component_number)
+                self.bulk_string = 'dydt[{}*Lorg+{}+i] = '.format(component_number-1,component_number)
+                self.core_string = 'dydt[{}*Lorg+{}] = '.format(component_number,component_number-1)
+            
+            # add to initial strings later with info from ReactionScheme
+            
+            # add mass transport terms to each string
+            
+            #surf transport different for gases and non-volatiles
+            if self.gas == True:
+                if component_number == 1:
+                    self.surf_string += 'kbs_1 * y[1] - ksb_1 * y[0] '
+                    self.firstbulk_string += '(ksb_1 * y[0] - kbs_1 * y[1]) * (A[0]/V[0]) + kbbx_1[0] * (y[2] - y[1]) * (A[1]/V[0]) '
+                    self.bulk_string += 'kbbx_1[i] * (y[{}*Lorg+{}+(i-1)] - y[{}*Lorg+{}+i]) * (A[i]/V[i]) + kbbx_1[i+1] * (y[{}*Lorg+{}+(i+1)] - y[{}*Lorg+{}+i]) * (A[i+1]/V[i]) '.format(component_number-1,component_number,
+                                               component_number-1,component_number,component_number-1,component_number,component_number-1,component_number)
+                    self.core_string += 'kbbx_1[-1] * (y[{}*Lorg+{}-1] - y[{}*Lorg+{}]) * (A[-1]/V[-1]) '.format(component_number,component_number-1,component_number,component_number-1)
+                else:
+                    self.surf_string += 'kbs_{} * y[{}*Lorg+{}] - ksb_{} * y[{}*Lorg+{}] '.format(component_number,component_number-1,component_number,component_number,component_number-1,component_number-1)
+                    self.firstbulk_string += '(ksb_{} * y[{}*Lorg+{}] - kbs_{} * y[{}*Lorg+{}]) * (A[0]/V[0]) + kbbx_{}[0] * (y[{}*Lorg+{}] - y[{}*Lorg+{}]) * (A[1]/V[0]) '.format(component_number,component_number-1,component_number-1,component_number,
+                                              component_number-1,component_number,component_number,component_number-1,component_number+1,component_number-1,component_number)
+                    self.bulk_string += 'kbbx_{}[i] * (y[{}*Lorg+{}+(i-1)] - y[{}*Lorg+{}+i]) * (A[i]/V[i]) + kbbx_{}[i+1] * (y[{}*Lorg+{}+(i+1)] - y[{}*Lorg+{}+i]) * (A[i+1]/V[i]) '.format(component_number,component_number-1,component_number,
+                                               component_number-1,component_number,component_number,component_number-1,component_number,component_number-1,component_number)
+                    self.core_string += 'kbbx_{}[-1] * (y[{}*Lorg+{}-1] - y[{}*Lorg+{}]) * (A[-1]/V[-1]) '.format(component_number,component_number,component_number-1,component_number,component_number-1)
             else:
-                self.surf_string += 'kbss_{} * y[{}*Lorg+{}] - kssb_{} * y[{}*Lorg+{}] '.format(component_number,component_number-1,component_number,component_number,component_number-1,component_number-1)
-                self.firstbulk_string += '(kssb_{} * y[{}*Lorg+{}] - kbss_{} * y[{}*Lorg+{}]) * (A[0]/V[0]) + kbby_{}[0] * (y[{}*Lorg+{}] - y[{}*Lorg+{}]) * (A[1]/V[0]) '.format(component_number,component_number-1,component_number-1,component_number,
-                                          component_number-1,component_number,component_number,component_number-1,component_number+1,component_number-1,component_number)
-                self.bulk_string += 'kbby_{}[i] * (y[{}*Lorg+{}+(i-1)] - y[{}*Lorg+{}+i]) * (A[i]/V[i]) + kbby_{}[i+1] * (y[{}*Lorg+{}+(i+1)] - y[{}*Lorg+{}+i]) * (A[i+1]/V[i]) '.format(component_number,component_number-1,component_number,
-                                           component_number-1,component_number,component_number,component_number-1,component_number,component_number-1,component_number)
-                self.core_string += 'kbby_{}[-1] * (y[{}*Lorg+{}-1] - y[{}*Lorg+{}]) * (A[-1]/V[-1]) '.format(component_number,component_number,component_number-1,component_number,component_number-1)
+                if component_number == 1:
+                    self.surf_string += 'kbss_1 * y[1] - kssb_1 * y[0] '
+                    self.firstbulk_string += '(kssb_1 * y[0] - kbss_1 * y[1]) * (A[0]/V[0]) + kbby_1[0] * (y[2] - y[1]) * (A[1]/V[0]) '
+                    self.bulk_string += 'kbby_1[i] * (y[{}*Lorg+{}+(i-1)] - y[{}*Lorg+{}+i]) * (A[i]/V[i]) + kbby_1[i+1] * (y[{}*Lorg+{}+(i+1)] - y[{}*Lorg+{}+i]) * (A[i+1]/V[i]) '.format(component_number-1,component_number,
+                                               component_number-1,component_number,component_number-1,component_number,component_number-1,component_number)
+                    self.core_string += 'kbby_1[-1] * (y[{}*Lorg+{}-1] - y[{}*Lorg+{}]) * (A[-1]/V[-1]) '.format(component_number,component_number-1,component_number,component_number-1)
+                    
+                else:
+                    self.surf_string += 'kbss_{} * y[{}*Lorg+{}] - kssb_{} * y[{}*Lorg+{}] '.format(component_number,component_number-1,component_number,component_number,component_number-1,component_number-1)
+                    self.firstbulk_string += '(kssb_{} * y[{}*Lorg+{}] - kbss_{} * y[{}*Lorg+{}]) * (A[0]/V[0]) + kbby_{}[0] * (y[{}*Lorg+{}] - y[{}*Lorg+{}]) * (A[1]/V[0]) '.format(component_number,component_number-1,component_number-1,component_number,
+                                              component_number-1,component_number,component_number,component_number-1,component_number+1,component_number-1,component_number)
+                    self.bulk_string += 'kbby_{}[i] * (y[{}*Lorg+{}+(i-1)] - y[{}*Lorg+{}+i]) * (A[i]/V[i]) + kbby_{}[i+1] * (y[{}*Lorg+{}+(i+1)] - y[{}*Lorg+{}+i]) * (A[i+1]/V[i]) '.format(component_number,component_number-1,component_number,
+                                               component_number-1,component_number,component_number,component_number-1,component_number,component_number-1,component_number)
+                    self.core_string += 'kbby_{}[-1] * (y[{}*Lorg+{}-1] - y[{}*Lorg+{}]) * (A[-1]/V[-1]) '.format(component_number,component_number,component_number-1,component_number,component_number-1)
+                    
                 
-                
-        # add reactions
-    
+        elif self.reaction_scheme.model_type.lower() == 'kmgap':
+            # build strings for km-gap
+            cn = self.component_number
+            
+            self.surf_string = f'dydt[{cn-1}*Lorg+2*{cn-1}] = '
+            self.static_surf_string = f'dydt[{cn-1}*Lorg+2*{cn-1}+1]'
+            self.firstbulk_string = f'dydt[{cn-1}*Lorg+2*{cn-1}+2] = '
+            self.bulk_string = f'dydt[{cn-1}*Lorg+{cn}+i+cn] = '
+            self.core_string = f'dydt[{cn}*Lorg+{cn}+{cn-1}] = '
+            
+            # adding transport terms to each string
+            self.surf_string += f'kss_s_{cn} * y[{cn-1}*Lorg+2*{cn-1}+1] - ks_ss_{cn} * y[{cn-1}*Lorg+2*{cn-1}] '
+            self.static_surf_string += f'ks_ss_{cn} * y[{cn-1}*Lorg+2*{cn-1}] - kss_s_{cn} * y[{cn-1}*Lorg+2*{cn-1}+1] '
+            self.firstbulk_string += f'(kssb_{cn} * y[{cn-1}*Lorg+2*{cn-1}+1] - kbss_{cn} * y[{cn-1}*Lorg+2*{cn-1}+2]) * (A[0]/V[0]) + kbb_{cn}[0] * (y[{cn-1}*Lorg+2*{cn-1}+2+1] - y[{cn-1}*Lorg+2*{cn-1}+2]) * (A[1]/V[0]) '
+                                      
+            self.bulk_string += f'kbb_{cn}[i] * (y[{cn-1}*Lorg+{cn}+i+cn-1] - y[{cn-1}*Lorg+{cn}+i+cn]) * (A[i]/V[i]) + kbb_{cn}[i+1] * ({cn-1}*Lorg+{cn}+i+cn+1] - y[{cn-1}*Lorg+{cn}+i+cn]) * (A[i+1]/V[i]) '
+                                       
+            self.core_string += f'kbb_{cn}[-1] * (y[{cn}*Lorg+{cn}+{cn-1}-1] - y[{cn}*Lorg+{cn}+{cn-1}) * (A[-1]/V[-1]) '
+
 class DiffusionRegime():
     '''
     XXX
