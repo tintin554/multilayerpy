@@ -24,15 +24,31 @@ import numpy as np
 import os
 from datetime import datetime
 
+class ModelType:
+    '''
+    A class which will contain information about the model type
+    '''
+    
+    def __init__(self, model_type):
+        
+        # make sure model_type is a string
+        assert type(model_type) == str
+        
+        self.model_type = model_type
+        
+
 class ReactionScheme:
     '''
     Defining the reaction scheme (what reacts with what)
     '''
     
-    def __init__(self,name='rxn_scheme',n_components=None,
+    def __init__(self,model_type_object,name='rxn_scheme',n_components=None,
                  reaction_tuple_list=None,products_of_reactions_list=[],
                  component_names=[],reactant_stoich=None, product_stoich=None):
-    
+        
+        # model type
+        self.model_type = model_type_object
+        
         # name of reaction scheme
         self.name = name # *error if not a string
         
