@@ -253,7 +253,7 @@ class ModelComponent:
                     
                 
         elif self.reaction_scheme.model_type.lower() == 'kmgap':
-            # build strings for km-gap
+            # build strings for km-gap, using number of molecules instead of molec cm-3
             cn = self.component_number
             
             self.surf_string = f'dydt[{cn-1}*Lorg+2*{cn-1}] = '
@@ -263,13 +263,13 @@ class ModelComponent:
             self.core_string = f'dydt[{cn}*Lorg+{cn}+{cn-1}] = '
             
             # adding transport terms to each string
-            self.surf_string += f'kss_s_{cn} * y[{cn-1}*Lorg+2*{cn-1}+1] - ks_ss_{cn} * y[{cn-1}*Lorg+2*{cn-1}] '
-            self.static_surf_string += f'ks_ss_{cn} * y[{cn-1}*Lorg+2*{cn-1}] - kss_s_{cn} * y[{cn-1}*Lorg+2*{cn-1}+1] '
-            self.firstbulk_string += f'(kssb_{cn} * y[{cn-1}*Lorg+2*{cn-1}+1] - kbss_{cn} * y[{cn-1}*Lorg+2*{cn-1}+2]) * (A[0]/V[0]) + kbb_{cn}[0] * (y[{cn-1}*Lorg+2*{cn-1}+2+1] - y[{cn-1}*Lorg+2*{cn-1}+2]) * (A[1]/V[0]) '
+            self.surf_string += f'kss_s_{cn} * y[{cn-1}*Lorg+2*{cn-1}+1] - ks_ss_{cn} * y[{cn-1}*Lorg+2*{cn-1}] * A[0] '
+            self.static_surf_string += f'ks_ss_{cn} * y[{cn-1}*Lorg+2*{cn-1}] - kss_s_{cn} * y[{cn-1}*Lorg+2*{cn-1}+1] * A[0] '
+            self.firstbulk_string += f'(kssb_{cn} * y[{cn-1}*Lorg+2*{cn-1}+1] - kbss_{cn} * y[{cn-1}*Lorg+2*{cn-1}+2]) * A[0] + kbb_{cn}[0] * (y[{cn-1}*Lorg+2*{cn-1}+2+1] - y[{cn-1}*Lorg+2*{cn-1}+2]) * A[1] '
                                       
-            self.bulk_string += f'kbb_{cn}[i] * (y[{cn-1}*Lorg+{cn}+i+cn-1] - y[{cn-1}*Lorg+{cn}+i+cn]) * (A[i]/V[i]) + kbb_{cn}[i+1] * ({cn-1}*Lorg+{cn}+i+cn+1] - y[{cn-1}*Lorg+{cn}+i+cn]) * (A[i+1]/V[i]) '
+            self.bulk_string += f'kbb_{cn}[i] * (y[{cn-1}*Lorg+{cn}+i+cn-1] - y[{cn-1}*Lorg+{cn}+i+cn]) * A[i] + kbb_{cn}[i+1] * ({cn-1}*Lorg+{cn}+i+cn+1] - y[{cn-1}*Lorg+{cn}+i+cn]) * A[i+1] '
                                        
-            self.core_string += f'kbb_{cn}[-1] * (y[{cn}*Lorg+{cn}+{cn-1}-1] - y[{cn}*Lorg+{cn}+{cn-1}) * (A[-1]/V[-1]) '
+            self.core_string += f'kbb_{cn}[-1] * (y[{cn}*Lorg+{cn}+{cn-1}-1] - y[{cn}*Lorg+{cn}+{cn-1}) * A[-1] '
 
 class DiffusionRegime():
     '''
@@ -527,7 +527,7 @@ class ModelBuilder():
        
        self.geometry = geometry
        
-       self.model_type = model_type # error if not in accepted types
+       self.model_type = reaction_scheme.model_type_object.name # error if not in accepted types
        
        # a SET of strings with names of required parameters
        #Build this
@@ -601,15 +601,27 @@ class ModelBuilder():
         master_string_list.append('\n    #calculate surface fraction of each component\n')
         for comp in mod_comps.values():
             comp_no = comp.component_number
-            fs_string = f'    fs_{comp_no} = y[{comp_no-1}*Lorg+{comp_no-1}] / ('
+            if mod_type.lower() == 'km-sub':
+                fs_string = f'    fs_{comp_no} = y[{comp_no-1}*Lorg+{comp_no-1}] / ('
+    
+            elif mod_type.lower() == 'km-gap': # frac of static surface layer for km-gap
+                fs_string = f'    fss_{comp_no} = y[{comp_no-1}*Lorg+2*{comp_no-1}+1] / ('
             
             # loop over each other component and add to the fs_string
             for ind, c in enumerate(mod_comps.values()):
                     cn = c.component_number
+                    
                     if ind == 0:
-                        fs_string += f'y[{cn-1}*Lorg+{cn-1}] '
+                        if mod_type.lower() == 'km-sub':
+                            fs_string += f'y[{cn-1}*Lorg+{cn-1}] '
+                        elif mod_type.lower() == 'km-gap':
+                            fs_string += f'y[{cn-1}*Lorg+2*{cn-1}+1] '
+                            
                     else:
-                        fs_string += f'+ y[{cn-1}*Lorg+{cn-1}]'
+                        if mod_type.lower() == 'km-sub':
+                            fs_string += f'+ y[{cn-1}*Lorg+{cn-1}]'
+                        elif mod_type.lower() == 'km-gap':
+                            fs_string += f'+ y[{cn-1}*Lorg+2*{cn-1}+1]'
                  
           # close the bracket on the demoninator
             fs_string += ')\n'
@@ -622,18 +634,31 @@ class ModelBuilder():
         surf_cover_str = '\n    surf_cover = '
         counter = 0
         for comp in mod_comps.values():
-            if comp.gas == True:
+            if mod_type.lower() == 'km-sub':
+                if comp.gas == True:
+                    comp_no = comp.component_number
+                    
+                    if counter == 0:
+                        surf_cover_str += f'delta_{comp_no}**2 * y[{comp_no-1}*Lorg+{comp_no-1}] '
+                        counter += 1
+                        
+                    else:
+                        surf_cover_str += f'+ delta_{comp_no}**2 * y[{comp_no-1}*Lorg+{comp_no-1}]'
+                        
+            elif mod_type.lower() == 'km-gap': # km-gap considers all components, not just volatiles
                 comp_no = comp.component_number
+                
                 if counter == 0:
-                    surf_cover_str += f'delta_{comp_no}**2 * y[{comp_no-1}*Lorg+{comp_no-1}] '
+                    surf_cover_str += f'delta_{comp_no}**2 * y[{comp_no-1}*Lorg+2*{comp_no-1}] '
                     counter += 1
+                    
                 else:
-                    surf_cover_str += f'+ delta_{comp_no}**2 * y[{comp_no-1}*Lorg+{comp_no-1}]'
+                    surf_cover_str += f'+ delta_{comp_no}**2 * y[{comp_no-1}*Lorg+2*{comp_no-1}]'
                 
             self.req_params.add(f'delta_{comp.component_number}')
         
         for comp in mod_comps.values():
-            if comp.gas == True:
+            if comp.gas == True or mod_type.lower() == 'km-gap':
                 comp_no = comp.component_number
                 
                 if comp.name != None:
@@ -644,31 +669,46 @@ class ModelBuilder():
                 # surface coverage
                 master_string_list.append(surf_cover_str)
                 
-                # alpha_s_X
+                # alpha_s_X, Z if km-gap
                 alpha_s_str = f'\n    alpha_s_{comp_no} = alpha_s_0_{comp_no} * (1-surf_cover)'
                 master_string_list.append(alpha_s_str)
                 
                 # J_coll_X
                 j_coll_str = f'\n    J_coll_X_{comp_no} = Xgs_{comp_no} * w_{comp_no}/4'
+                if mod_type.lower() == 'km-gap':
+                    j_coll_str = f'\n    J_coll_Z_{comp_no} = Zgs_{comp_no} * w_{comp_no}/4'
                 master_string_list.append(j_coll_str)
                 
                 # J_ads_X
                 j_ads_str = f'\n    J_ads_X_{comp_no} = alpha_s_{comp_no} * J_coll_X_{comp_no}'
+                if mod_type.lower() == 'km-gap':
+                    j_ads_str = f'\n    J_ads_Z_{comp_no} = alpha_s_{comp_no} * J_coll_Z_{comp_no}'
                 master_string_list.append(j_ads_str)
                 
                 # J_des_X
                 j_des_str = f'\n    J_des_X_{comp_no} = (1 / Td_{comp_no}) * y[{comp_no-1}*Lorg+{comp_no-1}]'
+                if mod_type.lower() == 'km-gap':
+                    j_des_str = f'\n    J_des_Z_{comp_no} = (1 / Td_{comp_no}) * y[{comp_no-1}*Lorg+2*{comp_no-1}]'
                 master_string_list.append(j_des_str)
                 
                 self.req_params.add(f'alpha_s_0_{comp_no}')
-                self.req_params.add(f'Xgs_{comp_no}')
+                
+                if mod_type.lower() == 'km-sub':
+                    self.req_params.add(f'Xgs_{comp_no}')
+                    
+                elif mod_type.lower() == 'km-gap':
+                    self.req_params.add(f'zgs_{comp_no}')
+                    
                 self.req_params.add(f'w_{comp_no}')
                 #self.req_params.add(f'kd_X_{comp_no}')
                 if use_scaled_k_surf:
                     self.req_params.add('scale_bulk_to_surf')
                 
                 # add surface ads/des to the surface string of the gaseous component
-                comp.surf_string += f'+ J_ads_X_{comp_no} - J_des_X_{comp_no}'
+                if mod_type.lower() == 'km-sub':
+                    comp.surf_string += f'+ J_ads_X_{comp_no} - J_des_X_{comp_no}'
+                elif mod_type.lower() == 'km-gap':
+                    comp.surf_string += f'+ J_ads_Z_{comp_no} - J_des_Z_{comp_no}'
         
          # diffusion evolution
         
