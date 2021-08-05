@@ -283,7 +283,10 @@ class DiffusionRegime():
     # which components have a comp dependence?
     # for each component write definition of D as a string
     # ouput a string which defines kbb, ksb etc (?)
-    def __init__(self,model_components_dict,regime='vignes',diff_dict=None):
+    def __init__(self,model_type,model_components_dict,regime='vignes',diff_dict=None):
+        
+        # ModelType object
+        self.model_type = model_type
         
         # string defining the diffusion regime to use
         self.regime = regime
@@ -305,6 +308,9 @@ class DiffusionRegime():
         self.ksb_strings = None
         self.kbss_strings = None
         self.kssb_strings = None
+        # list of strings for kss_s/ks_ss for km-gap
+        self.kss_s_strings = None
+        self.ks_ss_strings = None
         
         # list of strings describing Db for each model component
         self.Db_strings = None
@@ -338,6 +344,8 @@ class DiffusionRegime():
         kbs_string_list = []
         kbss_string_list = []
         kssb_string_list = []
+        kss_s_string_list = []
+        ks_ss_string_list = []
         req_diff_params = set([])
         
         # for each component in the diffuion evolution dictionary
@@ -439,7 +447,7 @@ class DiffusionRegime():
                 Ds_definition_string_list.append(Ds_string)
                 
             # define kbb and kbs/ksb strings for each component
-            if self.model_components_dict[f'{i+1}'].gas == True:
+            if self.model_components_dict[f'{i+1}'].gas == True and self.model_type.model_type.lower() == 'km-sub':
                 Hcc_definition = f'H_cc_{i+1} = H_{i+1} * R * T'
                 ksb_string = 'ksb_{} = H_cc_{} * kbs_{} / Td_{} / (w_{}*alpha_s_{}/4) '.format(i+1,i+1,i+1,i+1,i+1,i+1)
                 ksb_string_list.append(Hcc_definition)
@@ -448,7 +456,7 @@ class DiffusionRegime():
                 req_diff_params.add(f'H_{i+1}')
                 req_diff_params.add(f'Td_{i+1}')
                 req_diff_params.add(f'w_{i+1}')
-                req_diff_params.add(f'T')
+                req_diff_params.add('T')
                 
                 kbs_string = 'kbs_{} = (8/np.pi) * Ds_{} / layer_thick[0] '.format(i+1,i+1)
                 # add the molec. diameters of other components in the surface layer
@@ -459,8 +467,9 @@ class DiffusionRegime():
                 
                 kbb_string = 'kbbx_{} = (4/np.pi) * Db_{}_arr / layer_thick '.format(i+1,i+1)
                 kbb_string_list.append(kbb_string)
-                
-            else:
+            
+            
+            elif self.model_type.model_type.lower() == 'km-sub':
                 kssb_string = 'kssb_{} = kbss_{} / delta_{} '.format(i+1,i+1,i+1)
                 kssb_string_list.append(kssb_string)
                 
@@ -469,6 +478,30 @@ class DiffusionRegime():
                 
                 kbb_string = 'kbby_{} = (4/np.pi) * Db_{}_arr / layer_thick '.format(i+1,i+1)
                 kbb_string_list.append(kbb_string)
+                
+            elif self.model_type.model_type.lower() == 'km-gap':
+                kss_s_string = f'kss_s_{i+1} = Db_{i+1} / delta_{i+1}**2'
+                kss_s_string_list.append(kss_s_string)
+                
+                ks_ss_string = f'ks_ss_{i+1} = kss_s_{i+1} * (kd_{i+1} * Zss_eq_{i+1}) / (ka_{i+1} * Zg_eq_{i+1})'
+                ks_ss_string_list.append(ks_ss_string)
+                
+                kbss_string = f'kbss_{i+1} = (2 * Db_{i+1}) / (delta_{i+1} + layer_thick[0])'
+                kbss_string_list.append(kbss_string)
+                
+                kssb_string = f'kssb_{i+1} = Db_{i+1} / delta_{i+1}**2'
+                kssb_string_list.append(kssb_string)
+                
+                
+                # kbb slightly different in km-gap
+                kbb_string = f'kbb_{i+1} = (2 * Db_{i+1}_arr[:-1]) / (layer_thick[:-1] + layer_thick[1:])'
+                # tag on kbb for the core layer
+                core_kbb_string = f'kbb_core_{i+1} = (2 * Db_{i+1}_arr[-1]) / layer_thick[-1] '
+                kbb_core_add = f'kbb_{i+1} = np.append(kbb_{i+1},kbb_core_{i+1})'
+                kbb_string_list.append(kbb_string)
+                kbb_string_list.append(core_kbb_string)
+                kbb_string_list.append(kbb_core_add)
+                
         
         # update the Db_strings and Ds_strings attributes
         self.Db_strings = Db_definition_string_list
@@ -480,6 +513,8 @@ class DiffusionRegime():
         self.ksb_strings = ksb_string_list
         self.kbss_strings = kbss_string_list
         self.kssb_strings = kssb_string_list
+        self.kss_s_strings = kss_s_string_list
+        self.ks_ss_strings = ks_ss_string_list
         
         self.req_diff_params = req_diff_params
         
@@ -563,6 +598,9 @@ class ModelBuilder():
         rxn_name = self.reaction_scheme.name
         mod_comps = self.model_components
         
+        # make T a required param
+        self.req_params.add('T')
+        
         heading_strings = ['###############################################\n',
                            f'#A {mod_type} model constructed using MultilayerPy\n',
                            '\n',
@@ -593,7 +631,46 @@ class ModelBuilder():
         init_dydt = f'\n\n    # init dydt array\n    dydt = np.zeros(Lorg * {n_comps} + {n_comps})\n'
         master_string_list.append(init_dydt)
         
-        
+        # calculate each bulk layer volume, area and thickness as a function of
+        # number of molecules in that layer (KM-GAP only)
+        if mod_type.lower() == 'km-gap':
+            master_string_list.append('\n    #--------------Define V, A and layer thickness as function of Number of molecules---------------\n')
+            
+            comp_V_list = [] # list of V contribution from each component
+            for comp in mod_comps.values():
+                cn = comp.component_number
+                master_string_list.append(f'\n\n    #--------------component {cn} V---------------\n')
+                N_bulk_comp_str = f'\n    N_bulk_{cn} = y[{cn-1}*Lorg+2*{cn-1}+2:{cn}*Lorg+{cn}+{cn-1}+1]' 
+                v_comp_str = f'\n    v_{cn} = delta_{cn}**3'
+                Vtot_comp_str = f'\n    Vtot_{cn} = N_bulk_{cn} * v_{cn}'
+                # add Vtot_comp to comp_V_list
+                comp_V_list.append(f'Vtot_{cn}')
+                
+                master_string_list.append(N_bulk_comp_str)
+                master_string_list.append(v_comp_str)
+                master_string_list.append(Vtot_comp_str)
+            
+            # now calculate total V, A and layer thick
+            master_string_list.append('\n\n    # calc total V, A, layer thick')
+            Vtot_str = '\n    Vtot = '
+            for vtot in comp_V_list:
+                Vtot_str += '+ ' + vtot + ' '
+            
+            sum_V_str = '\n    sum_V = np.cumsum(Vtot)'
+            r_pos_str = '\n    r_pos = np.cbrt((3.0/4*np.pi) * np.flip(sum_V))' # different for planar
+            A_str = '\n    A = 4 * np.pi * r_pos**2'
+            
+            layer_thick_str = '\n    layer_thick = r_pos[:-1] - r_pos[1:]'
+            layer_thick_core_str = '\n    layer_thick = np.append(layer_thick,r_pos[-1])'
+            
+            master_string_list.append(Vtot_str)
+            master_string_list.append(sum_V_str)
+            master_string_list.append(r_pos_str)
+            master_string_list.append(A_str)
+            master_string_list.append(layer_thick_str)
+            master_string_list.append(layer_thick_core_str)
+            master_string_list.append('\n    V = Vtot') # V now re-defined
+            
         # surface uptake definition for each gas component
         master_string_list.append('\n    #--------------Define surface uptake parameters for gas components---------------\n')
         
@@ -673,6 +750,22 @@ class ModelBuilder():
                 alpha_s_str = f'\n    alpha_s_{comp_no} = alpha_s_0_{comp_no} * (1-surf_cover)'
                 master_string_list.append(alpha_s_str)
                 
+                # calculate [Z]ss,eq and [Z]g,eq - km-gap
+                if mod_type.lower() == 'km-gap':
+                    ka_str = f'\n    ka_{comp_no} = alpha_s_{comp_no} * w_{comp_no} / 4'
+                    kd_str = f'\n    kd_{comp_no} = 1 / Td_{comp_no}'
+                    Zss_eq_str = f'\n    Zss_eq_{comp_no} = (ka_{comp_no}/kd_{comp_no}) * Zgs_{comp_no}'
+                    
+                    Zg_eq_str = f'\n    Zg_eq_{comp_no} = (p_{comp_no} * Na) / (R * T)'
+                    
+                    master_string_list.append(ka_str)
+                    master_string_list.append(kd_str)
+                    master_string_list.append(Zss_eq_str)
+                    master_string_list.append(Zg_eq_str)
+                    self.req_params.add(f'p_{comp_no}')
+                    self.req_params.add(f'Td_{comp_no}')
+                    
+                
                 # J_coll_X
                 j_coll_str = f'\n    J_coll_X_{comp_no} = Xgs_{comp_no} * w_{comp_no}/4'
                 if mod_type.lower() == 'km-gap':
@@ -684,6 +777,7 @@ class ModelBuilder():
                 if mod_type.lower() == 'km-gap':
                     j_ads_str = f'\n    J_ads_Z_{comp_no} = alpha_s_{comp_no} * J_coll_Z_{comp_no}'
                 master_string_list.append(j_ads_str)
+                
                 
                 # J_des_X
                 j_des_str = f'\n    J_des_X_{comp_no} = (1 / Td_{comp_no}) * y[{comp_no-1}*Lorg+{comp_no-1}]'
@@ -697,7 +791,7 @@ class ModelBuilder():
                     self.req_params.add(f'Xgs_{comp_no}')
                     
                 elif mod_type.lower() == 'km-gap':
-                    self.req_params.add(f'zgs_{comp_no}')
+                    self.req_params.add(f'Zgs_{comp_no}')
                     
                 self.req_params.add(f'w_{comp_no}')
                 #self.req_params.add(f'kd_X_{comp_no}')
@@ -794,6 +888,14 @@ class ModelBuilder():
         # kbb
         for s in diff_regime.kbb_strings:
             master_string_list.append(four_space+s+'\n')
+            
+        # kss_s (km-gap)
+        for s in diff_regime.kss_s_strings:
+            master_string_list.append(four_space+s+'\n')
+            
+        # ks_ss (km-gap)
+        for s in diff_regime.ks_ss_strings:
+            master_string_list.append(four_space+s+'\n')
         
          
         '''
@@ -852,11 +954,11 @@ class ModelBuilder():
                                         comp.core_string += f'- y[{cn}*Lorg+{cn-1}] * y[{rn}*Lorg+{rn-1}] * k'
                                     
                                     elif mod_type.lower() == 'km-gap':
-                                        comp.surf_string += f'- y[{cn-1}*Lorg+2*{cn-1}] * y[{rn-1}*Lorg+2*{rn-1}] * k'
-                                        comp.static_surf_string += f'- y[{cn-1}*Lorg+2*{cn-1}+1] * y[{rn-1}*Lorg+2*{rn-1}+1] * k'
-                                        comp.firstbulk_string += f'- y[{cn-1}*Lorg+2*{cn-1}+2] * y[{rn-1}*Lorg+2*{rn-1}+2] * k'
-                                        comp.bulk_string += f'- y[{cn-1}*Lorg+{cn}+i+{cn}] * y[{rn-1}*Lorg+{rn}+i+{rn}] * k'
-                                        comp.core_string += f'- y[{cn}*Lorg+{cn-1}] * y[{rn}*Lorg+{rn}+{rn-1}] * k'
+                                        comp.surf_string += f'- A[0] * y[{cn-1}*Lorg+2*{cn-1}] * y[{rn-1}*Lorg+2*{rn-1}] * k'
+                                        comp.static_surf_string += f'- A[0] * y[{cn-1}*Lorg+2*{cn-1}+1] * y[{rn-1}*Lorg+2*{rn-1}+1] * k'
+                                        comp.firstbulk_string += f'- V[0] * y[{cn-1}*Lorg+2*{cn-1}+2] * y[{rn-1}*Lorg+2*{rn-1}+2] * k'
+                                        comp.bulk_string += f'- V[i] * y[{cn-1}*Lorg+{cn}+i+{cn}] * y[{rn-1}*Lorg+{rn}+i+{rn}] * k'
+                                        comp.core_string += f'- V[-1] *  y[{cn}*Lorg+{cn-1}] * y[{rn}*Lorg+{rn}+{rn-1}] * k'
                                         
                                         
                                     # sorted array of cn and rn to define correct reaction constant (k)
@@ -887,11 +989,11 @@ class ModelBuilder():
                                         comp.core_string += f'- {react_1_stoich} * y[{cn}*Lorg+{cn-1}] * {react_2_stoich} * y[{rn}*Lorg+{rn-1}] * k'
                                         
                                     elif mod_type.lower() == 'km-gap':
-                                        comp.surf_string += f'- {react_1_stoich} * y[{cn-1}*Lorg+2*{cn-1}] * {react_2_stoich} * y[{rn-1}*Lorg+2*{rn-1}] * k'
-                                        comp.static_surf_string += f'- {react_1_stoich} * y[{cn-1}*Lorg+2*{cn-1}+1] * {react_2_stoich} * y[{rn-1}*Lorg+2*{rn-1}+1] * k'
-                                        comp.firstbulk_string += f'- {react_1_stoich} * y[{cn-1}*Lorg+2*{cn-1}+2] * {react_2_stoich} * y[{rn-1}*Lorg+2*{rn-1}+2] * k'
-                                        comp.bulk_string += f'- {react_1_stoich} * y[{cn-1}*Lorg+{cn}+i+{cn}] * {react_2_stoich} * y[{rn-1}*Lorg+{rn}+i+{rn}] * k'
-                                        comp.core_string += f'- {react_1_stoich} * y[{cn}*Lorg+{cn-1}] * {react_2_stoich} * y[{rn}*Lorg+{rn}+{rn-1}] * k'
+                                        comp.surf_string += f'- A[0] * {react_1_stoich} * y[{cn-1}*Lorg+2*{cn-1}] * {react_2_stoich} * y[{rn-1}*Lorg+2*{rn-1}] * k'
+                                        comp.static_surf_string += f'- A[0] * {react_1_stoich} * y[{cn-1}*Lorg+2*{cn-1}+1] * {react_2_stoich} * y[{rn-1}*Lorg+2*{rn-1}+1] * k'
+                                        comp.firstbulk_string += f'- V[0] * {react_1_stoich} * y[{cn-1}*Lorg+2*{cn-1}+2] * {react_2_stoich} * y[{rn-1}*Lorg+2*{rn-1}+2] * k'
+                                        comp.bulk_string += f'- V[i] * {react_1_stoich} * y[{cn-1}*Lorg+{cn}+i+{cn}] * {react_2_stoich} * y[{rn-1}*Lorg+{rn}+i+{rn}] * k'
+                                        comp.core_string += f'- V[-1] * {react_1_stoich} * y[{cn}*Lorg+{cn-1}] * {react_2_stoich} * y[{rn}*Lorg+{rn}+{rn-1}] * k'
                                         
                                         
                                     # sorted array of cn and rn to define correct reaction constant (k)
@@ -920,11 +1022,11 @@ class ModelBuilder():
                          
                     elif mod_type.lower() == 'km-gap':
                         cn  = comp.component_number
-                        comp.surf_string += f'- y[{cn-1}*Lorg+2*{cn-1}] * k1_{cn}'
-                        comp.static_surf_string += f'- y[{cn-1}*Lorg+2*{cn-1}+1] * k1_{cn}'
-                        comp.firstbulk_string += f'- y[{cn-1}*Lorg+2*{cn-1}+2] * k1_{cn}'
-                        comp.bulk_string += f'- y[{cn-1}*Lorg+{cn}+i+{cn}] * k1_{cn}'
-                        comp.core_string += f'- y[{cn}*Lorg+{cn}+{cn-1}] * k1_{cn}'
+                        comp.surf_string += f'- A[0] * y[{cn-1}*Lorg+2*{cn-1}] * k1_{cn}'
+                        comp.static_surf_string += f'- A[0] * y[{cn-1}*Lorg+2*{cn-1}+1] * k1_{cn}'
+                        comp.firstbulk_string += f'- V[0] * y[{cn-1}*Lorg+2*{cn-1}+2] * k1_{cn}'
+                        comp.bulk_string += f'- V[i] * y[{cn-1}*Lorg+{cn}+i+{cn}] * k1_{cn}'
+                        comp.core_string += f'- V[-1] * y[{cn}*Lorg+{cn}+{cn-1}] * k1_{cn}'
                         
                         self.req_params.add(f'k1_{cn}')
                        
@@ -944,11 +1046,11 @@ class ModelBuilder():
                                 comp.core_string += f'+ y[{r1}*Lorg+{r1-1}] * y[{r2}*Lorg+{r2-1}] * k'
                                 
                             elif mod_type.lower() == 'km-gap':
-                                comp.surf_string += f'+ y[{cn-1}*Lorg+2*{cn-1}] * y[{rn-1}*Lorg+2*{rn-1}] * k'
-                                comp.static_surf_string += f'+ y[{cn-1}*Lorg+2*{cn-1}+1] * y[{rn-1}*Lorg+2*{rn-1}+1] * k'
-                                comp.firstbulk_string += f'+ y[{cn-1}*Lorg+2*{cn-1}+2] * y[{rn-1}*Lorg+2*{rn-1}+2] * k'
-                                comp.bulk_string += f'+ y[{cn-1}*Lorg+{cn}+i+{cn}] * y[{rn-1}*Lorg+{rn}+i+{rn}] * k'
-                                comp.core_string += f'+ y[{cn}*Lorg+{cn-1}] * y[{rn}*Lorg+{rn}+{rn-1}] * k'
+                                comp.surf_string += f'+ A[0] * y[{cn-1}*Lorg+2*{cn-1}] * y[{rn-1}*Lorg+2*{rn-1}] * k'
+                                comp.static_surf_string += f'+ A[0] * y[{cn-1}*Lorg+2*{cn-1}+1] * y[{rn-1}*Lorg+2*{rn-1}+1] * k'
+                                comp.firstbulk_string += f'+ V[0] * y[{cn-1}*Lorg+2*{cn-1}+2] * y[{rn-1}*Lorg+2*{rn-1}+2] * k'
+                                comp.bulk_string += f'+ V[i] * y[{cn-1}*Lorg+{cn}+i+{cn}] * y[{rn-1}*Lorg+{rn}+i+{rn}] * k'
+                                comp.core_string += f'+ V[-1] * y[{cn}*Lorg+{cn-1}] * y[{rn}*Lorg+{rn}+{rn-1}] * k'
                                 
                             
                             # sorted array of cn and rn to define correct reaction constant (k)
@@ -981,11 +1083,11 @@ class ModelBuilder():
                                 comp.core_string += f'+ {react_1_stoich} * y[{r1}*Lorg+{r1-1}] * {react_2_stoich} * y[{r2}*Lorg+{r2-1}] * k'
                                 
                             elif mod_type.lower() == 'km-gap':
-                                comp.surf_string += f'+ {react_1_stoich} * y[{cn-1}*Lorg+2*{cn-1}] * {react_2_stoich} * y[{rn-1}*Lorg+2*{rn-1}] * k'
-                                comp.static_surf_string += f'+ {react_1_stoich} * y[{cn-1}*Lorg+2*{cn-1}+1] * {react_2_stoich} * y[{rn-1}*Lorg+2*{rn-1}+1] * k'
-                                comp.firstbulk_string += f'+ {react_1_stoich} * y[{cn-1}*Lorg+2*{cn-1}+2] * {react_2_stoich} * y[{rn-1}*Lorg+2*{rn-1}+2] * k'
-                                comp.bulk_string += f'+ {react_1_stoich} * y[{cn-1}*Lorg+{cn}+i+{cn}] * {react_2_stoich} * y[{rn-1}*Lorg+{rn}+i+{rn}] * k'
-                                comp.core_string += f'+ {react_1_stoich} * y[{cn}*Lorg+{cn-1}] * {react_2_stoich} * y[{rn}*Lorg+{rn}+{rn-1}] * k'
+                                comp.surf_string += f'+ A[0] * {react_1_stoich} * y[{cn-1}*Lorg+2*{cn-1}] * {react_2_stoich} * y[{rn-1}*Lorg+2*{rn-1}] * k'
+                                comp.static_surf_string += f'+ A[0] * {react_1_stoich} * y[{cn-1}*Lorg+2*{cn-1}+1] * {react_2_stoich} * y[{rn-1}*Lorg+2*{rn-1}+1] * k'
+                                comp.firstbulk_string += f'+ V[0] * {react_1_stoich} * y[{cn-1}*Lorg+2*{cn-1}+2] * {react_2_stoich} * y[{rn-1}*Lorg+2*{rn-1}+2] * k'
+                                comp.bulk_string += f'+ V[i] * {react_1_stoich} * y[{cn-1}*Lorg+{cn}+i+{cn}] * {react_2_stoich} * y[{rn-1}*Lorg+{rn}+i+{rn}] * k'
+                                comp.core_string += f'+ V[-1] * {react_1_stoich} * y[{cn}*Lorg+{cn-1}] * {react_2_stoich} * y[{rn}*Lorg+{rn}+{rn-1}] * k'
                                 
                     
                             # sorted array of cn and rn to define correct reaction constant (k)
@@ -1076,6 +1178,7 @@ class ModelBuilder():
                 
         # define the gas constant        
         unpack_params_string_list.append('\n    R = 82.0578') 
+        unpack_params_string_list.append('\n    Na = 6.022e23') 
         
         # wrapping up the dydt function
         master_string_list.append('\n')

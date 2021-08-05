@@ -52,7 +52,7 @@ class Simulate():
         
         self.surf_concs = {}
         self.bulk_concs = {}
-        
+        self.static_surf_concs = {}
         
 
     def run(self,n_layers, rp, time_span, n_time, V, A, layer_thick, dense_output=False,
@@ -100,35 +100,114 @@ class Simulate():
         #print(f'Model run took {end_int-start_int:.2f} s')
         
         # return model output and assign dicts of surf + bulk concs
-        
-        # collect surface concentrations
-        surf_conc_inds = [0]
-        for i in range(1,len(self.model.model_components)):
-            ind = i * n_layers + i
-            surf_conc_inds.append(ind)
+        if self.model.model_type.lower() == 'km-sub':
+            # collect surface concentrations
+            surf_conc_inds = [0]
+            for i in range(1,len(self.model.model_components)):
+                ind = i * n_layers + i
+                surf_conc_inds.append(ind)
+                
+            surf_concs = {}
+            # append to surf concs dict for each component
+            for ind, i in enumerate(surf_conc_inds):
+                surf_concs[f'{ind+1}'] = model_output.y.T[:,i] 
+                
+            # bulk concentrations
+            bulk_concs = {}
+            for i in range(len(self.model.model_components)):
+                conc_output = model_output.y.T[:,i*n_layers+1+i:(i+1)*n_layers+i+1]
+                
+                bulk_concs[f'{i+1}'] = conc_output
             
-        surf_concs = {}
-        # append to surf concs dict for each component
-        for ind, i in enumerate(surf_conc_inds):
-            surf_concs[f'{ind+1}'] = model_output.y.T[:,i] 
-            
-        # bulk concentrations
-        bulk_concs = {}
-        for i in range(len(self.model.model_components)):
-            conc_output = model_output.y.T[:,i*n_layers+1+i:(i+1)*n_layers+i+1]
-            
-            bulk_concs[f'{i+1}'] = conc_output
+            self.surf_concs = surf_concs
+            self.bulk_concs = bulk_concs
+            self.model_output = model_output
         
-        self.surf_concs = surf_concs
-        self.bulk_concs = bulk_concs
-        self.model_output = model_output
-        
+        elif self.model.model_type.lower() == 'km-gap':
+            # REMEMBER division by A or V to get molec. cm-2 or cm-3 (km-gap)
+            
+            # calculate V_t and A_t at each time point
+            
+            V_t, A_t = calc_Vt_At_layer_thick(model_output)
+            
+            
+            # collect surface concentrations
+            surf_conc_inds = []
+            for i in range(len(self.model.model_components)):
+                cn = i + 1
+                ind = (cn-1) * n_layers + 2 * (cn-1)
+                surf_conc_inds.append(ind)
+                
+            surf_concs = {}
+            # append to surf concs dict for each component
+            for ind, i in enumerate(surf_conc_inds):
+                surf_concs[f'{ind+1}'] = model_output.y.T[:,i] / A_t[0]
+                
+            # collect static surface concentrations
+            static_surf_conc_inds = []
+            for i in range(len(self.model.model_components)):
+                cn = i + 1
+                ind = (cn-1)*n_layers+2*(cn-1)+1
+                static_surf_conc_inds.append(ind)
+                
+            static_surf_concs = {}
+            # append to surf concs dict for each component
+            for ind, i in enumerate(surf_conc_inds):
+                static_surf_concs[f'{ind+1}'] = model_output.y.T[:,i] / A_t[0]
+                
+            # get bulk concentrations
+            bulk_concs = {}
+            for i in range(len(self.model.model_components)):
+                cn = i + 1
+                conc_output = model_output.y.T[:,(cn-1)*n_layers+2*(cn-1)+2:cn*n_layers+cn+(cn-1)+1] / V_t
+                
+                bulk_concs[f'{i+1}'] = conc_output
+                
+            self.surf_concs = surf_concs
+            self.static_surf_concs = static_surf_concs
+            self.bulk_concs = bulk_concs
+            self.model_output = model_output
+            
         
         return model_output
 
         # function to plot output
         
+    def calc_Vt_At_layer_thick(self,model_output):
+        '''
+        calculate V and A of each layer at each timepoint in the simulation
+        '''
+        
+        output = model_output.y.T
+        n_comps = len(self.model.model_components)
+        n_layers = self.run_params['n_layers']
+        
+        Vtot = np.array([])
+        for i in range(n_comps):
+            cn = i + 1
+            # volume
+            N_bulk = output[(cn-1)*n_layers+2*(cn-1)+2:(cn)*n_layers+(cn)+(cn-1)]
+            v_molec = self.parameters[f'delta_{cn}'] ** 3
+            V_tot_comp = N_bulk * v_molec
+            if i == 0:
+                Vtot = V_tot_comp
+            else:
+                Vtot = Vtot + V_tot_comp
+            
+        # area (spherical geom)
+        sum_V = np.cumsum(Vtot,axis=0)
+        r_pos = np.cbrt((3.0/4*np.pi) * np.flip(sum_V))
+        A = 4 * np.pi * r_pos**2
+        
+        # layer thickness
+        layer_thick = r_pos[:-1] - r_pos[1:]
+        layer_thick = np.append(layer_thick,r_pos[-1])
+        
+        return Vtot, A, layer_thick
+            
+        
     def plot(self,norm=False,data=None):
+        # ACCOUNT FOR KM-GAP
         model_output = self.model_output.y.T 
         
         n_layers = self.run_params['n_layers']
