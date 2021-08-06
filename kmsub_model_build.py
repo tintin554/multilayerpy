@@ -257,19 +257,19 @@ class ModelComponent:
             cn = self.component_number
             
             self.surf_string = f'dydt[{cn-1}*Lorg+2*{cn-1}] = '
-            self.static_surf_string = f'dydt[{cn-1}*Lorg+2*{cn-1}+1]'
+            self.static_surf_string = f'dydt[{cn-1}*Lorg+2*{cn-1}+1] = '
             self.firstbulk_string = f'dydt[{cn-1}*Lorg+2*{cn-1}+2] = '
             self.bulk_string = f'dydt[{cn-1}*Lorg+{cn}+i+{cn}] = '
             self.core_string = f'dydt[{cn}*Lorg+{cn}+{cn-1}] = '
             
             # adding transport terms to each string
-            self.surf_string += f'kss_s_{cn} * y[{cn-1}*Lorg+2*{cn-1}+1] - ks_ss_{cn} * y[{cn-1}*Lorg+2*{cn-1}] * A[0] '
-            self.static_surf_string += f'ks_ss_{cn} * y[{cn-1}*Lorg+2*{cn-1}] - kss_s_{cn} * y[{cn-1}*Lorg+2*{cn-1}+1] * A[0] '
-            self.firstbulk_string += f'(kssb_{cn} * y[{cn-1}*Lorg+2*{cn-1}+1] - kbss_{cn} * y[{cn-1}*Lorg+2*{cn-1}+2]) * A[0] + kbb_{cn}[0] * (y[{cn-1}*Lorg+2*{cn-1}+2+1] - y[{cn-1}*Lorg+2*{cn-1}+2]) * A[1] '
+            self.surf_string += f'kss_s_{cn} * (y[{cn-1}*Lorg+2*{cn-1}+1]/A[0]) * A[0] - ks_ss_{cn} * (y[{cn-1}*Lorg+2*{cn-1}]/A[0]) * A[0] '
+            self.static_surf_string += f'ks_ss_{cn} * (y[{cn-1}*Lorg+2*{cn-1}]/A[0]) * A[0] - kss_s_{cn} * (y[{cn-1}*Lorg+2*{cn-1}+1]/A[0]) * A[0] + (kbss_{cn} * (y[{cn-1}*Lorg+2*{cn-1}+2]/A[0]) - kssb_{cn} * (y[{cn-1}*Lorg+2*{cn-1}+1]/A[0])) '
+            self.firstbulk_string += f'(kssb_{cn} * (y[{cn-1}*Lorg+2*{cn-1}+1]/A[0]) - kbss_{cn} * (y[{cn-1}*Lorg+2*{cn-1}+2]/A[0])) * A[0] + kbb_{cn}[0] * (y[{cn-1}*Lorg+2*{cn-1}+2+1]/V[0] - y[{cn-1}*Lorg+2*{cn-1}+2]/V[0]) * A[1] '
                                       
-            self.bulk_string += f'kbb_{cn}[i] * (y[{cn-1}*Lorg+{cn}+i+{cn}-1] - y[{cn-1}*Lorg+{cn}+i+{cn}]) * A[i] + kbb_{cn}[i+1] * (y[{cn-1}*Lorg+{cn}+i+{cn}+1] - y[{cn-1}*Lorg+{cn}+i+{cn}]) * A[i+1] '
+            self.bulk_string += f'kbb_{cn}[i] * (y[{cn-1}*Lorg+{cn}+i+{cn}-1]/V[i] - y[{cn-1}*Lorg+{cn}+i+{cn}]/V[i]) * A[i] + kbb_{cn}[i+1] * (y[{cn-1}*Lorg+{cn}+i+{cn}+1]/V[i+1] - y[{cn-1}*Lorg+{cn}+i+{cn}]/V[i]) * A[i+1] '
                                        
-            self.core_string += f'kbb_{cn}[-1] * (y[{cn}*Lorg+{cn}+{cn-1}-1] - y[{cn}*Lorg+{cn}+{cn-1}]) * A[-1] '
+            self.core_string += f'kbb_{cn}[-1] * (y[{cn}*Lorg+{cn}+{cn-1}-1]/V[-2] - y[{cn}*Lorg+{cn}+{cn-1}]/V[-1]) * A[-1] '
 
 class DiffusionRegime():
     '''
@@ -483,7 +483,7 @@ class DiffusionRegime():
                 kss_s_string = f'kss_s_{i+1} = Db_{i+1} / delta_{i+1}**2'
                 kss_s_string_list.append(kss_s_string)
                 
-                ks_ss_string = f'ks_ss_{i+1} = kss_s_{i+1} * (kd_{i+1} * Zss_eq_{i+1}) / (ka_{i+1} * Zg_eq_{i+1})'
+                ks_ss_string = f'ks_ss_{i+1} = kss_s_{i+1} * ((kd_{i+1} * Zss_eq_{i+1}) / (ka_{i+1} * Zg_eq_{i+1}))'
                 ks_ss_string_list.append(ks_ss_string)
                 
                 kbss_string = f'kbss_{i+1} = (2 * Db_{i+1}) / (delta_{i+1} + layer_thick[0])'
@@ -629,6 +629,9 @@ class ModelBuilder():
         # initialise dydt output array
         n_comps = len(mod_comps)
         init_dydt = f'\n\n    # init dydt array\n    dydt = np.zeros(Lorg * {n_comps} + {n_comps})\n'
+        if mod_type.lower() == 'km-gap':
+            init_dydt = f'\n\n    # init dydt array\n    dydt = np.zeros(Lorg * {n_comps} + 2 * {n_comps})\n'
+            
         master_string_list.append(init_dydt)
         
         # calculate each bulk layer volume, area and thickness as a function of
@@ -726,11 +729,11 @@ class ModelBuilder():
                 comp_no = comp.component_number
                 
                 if counter == 0:
-                    surf_cover_str += f'delta_{comp_no}**2 * y[{comp_no-1}*Lorg+2*{comp_no-1}] '
+                    surf_cover_str += f'delta_{comp_no}**2 * y[{comp_no-1}*Lorg+2*{comp_no-1}] * A[0]'
                     counter += 1
                     
                 else:
-                    surf_cover_str += f'+ delta_{comp_no}**2 * y[{comp_no-1}*Lorg+2*{comp_no-1}]'
+                    surf_cover_str += f'+ delta_{comp_no}**2 * y[{comp_no-1}*Lorg+2*{comp_no-1}] * A[0]'
                 
             self.req_params.add(f'delta_{comp.component_number}')
         
@@ -802,7 +805,7 @@ class ModelBuilder():
                 if mod_type.lower() == 'km-sub':
                     comp.surf_string += f'+ J_ads_X_{comp_no} - J_des_X_{comp_no}'
                 elif mod_type.lower() == 'km-gap':
-                    comp.surf_string += f'+ J_ads_Z_{comp_no} - J_des_Z_{comp_no}'
+                    comp.surf_string += f'+ J_ads_Z_{comp_no} * A[0] - J_des_Z_{comp_no} * A[0]'
         
          # diffusion evolution
         
@@ -954,11 +957,11 @@ class ModelBuilder():
                                         comp.core_string += f'- y[{cn}*Lorg+{cn-1}] * y[{rn}*Lorg+{rn-1}] * k'
                                     
                                     elif mod_type.lower() == 'km-gap':
-                                        comp.surf_string += f'- A[0] * y[{cn-1}*Lorg+2*{cn-1}] * y[{rn-1}*Lorg+2*{rn-1}] * k'
-                                        comp.static_surf_string += f'- A[0] * y[{cn-1}*Lorg+2*{cn-1}+1] * y[{rn-1}*Lorg+2*{rn-1}+1] * k'
-                                        comp.firstbulk_string += f'- V[0] * y[{cn-1}*Lorg+2*{cn-1}+2] * y[{rn-1}*Lorg+2*{rn-1}+2] * k'
-                                        comp.bulk_string += f'- V[i] * y[{cn-1}*Lorg+{cn}+i+{cn}] * y[{rn-1}*Lorg+{rn}+i+{rn}] * k'
-                                        comp.core_string += f'- V[-1] *  y[{cn}*Lorg+{cn-1}] * y[{rn}*Lorg+{rn}+{rn-1}] * k'
+                                        comp.surf_string += f'- A[0] * (y[{cn-1}*Lorg+2*{cn-1}]/A[0]) * (y[{rn-1}*Lorg+2*{rn-1}]/A[0]) * k'
+                                        comp.static_surf_string += f'- A[0] * (y[{cn-1}*Lorg+2*{cn-1}+1]/A[0]) * (y[{rn-1}*Lorg+2*{rn-1}+1]/A[0]) * k'
+                                        comp.firstbulk_string += f'- V[0] * (y[{cn-1}*Lorg+2*{cn-1}+2]/V[0]) * (y[{rn-1}*Lorg+2*{rn-1}+2]/V[0]) * k'
+                                        comp.bulk_string += f'- V[i] * (y[{cn-1}*Lorg+{cn}+i+{cn}]/V[i]) * (y[{rn-1}*Lorg+{rn}+i+{rn}]/V[i]) * k'
+                                        comp.core_string += f'- V[-1] *  (y[{cn}*Lorg+{cn-1}]/V[-1]) * (y[{rn}*Lorg+{rn}+{rn-1}]/V[-1]) * k'
                                         
                                         
                                     # sorted array of cn and rn to define correct reaction constant (k)
@@ -970,6 +973,7 @@ class ModelBuilder():
                                     for n in sorted_cn_rn:
                                         comp.surf_string += f'_{n}'   
                                         comp.firstbulk_string += f'_{n}'
+                                        comp.static_surf_string += f'_{n}'
                                         comp.bulk_string += f'_{n}'
                                         comp.core_string += f'_{n}'
                                         k_string += f'_{n}'
@@ -989,11 +993,11 @@ class ModelBuilder():
                                         comp.core_string += f'- {react_1_stoich} * y[{cn}*Lorg+{cn-1}] * {react_2_stoich} * y[{rn}*Lorg+{rn-1}] * k'
                                         
                                     elif mod_type.lower() == 'km-gap':
-                                        comp.surf_string += f'- A[0] * {react_1_stoich} * y[{cn-1}*Lorg+2*{cn-1}] * {react_2_stoich} * y[{rn-1}*Lorg+2*{rn-1}] * k'
-                                        comp.static_surf_string += f'- A[0] * {react_1_stoich} * y[{cn-1}*Lorg+2*{cn-1}+1] * {react_2_stoich} * y[{rn-1}*Lorg+2*{rn-1}+1] * k'
-                                        comp.firstbulk_string += f'- V[0] * {react_1_stoich} * y[{cn-1}*Lorg+2*{cn-1}+2] * {react_2_stoich} * y[{rn-1}*Lorg+2*{rn-1}+2] * k'
-                                        comp.bulk_string += f'- V[i] * {react_1_stoich} * y[{cn-1}*Lorg+{cn}+i+{cn}] * {react_2_stoich} * y[{rn-1}*Lorg+{rn}+i+{rn}] * k'
-                                        comp.core_string += f'- V[-1] * {react_1_stoich} * y[{cn}*Lorg+{cn-1}] * {react_2_stoich} * y[{rn}*Lorg+{rn}+{rn-1}] * k'
+                                        comp.surf_string += f'- A[0] * {react_1_stoich} * (y[{cn-1}*Lorg+2*{cn-1}]/A[0]) * {react_2_stoich} * (y[{rn-1}*Lorg+2*{rn-1}]/A[0]) * k'
+                                        comp.static_surf_string += f'- A[0] * {react_1_stoich} * (y[{cn-1}*Lorg+2*{cn-1}+1]/A[0]) * {react_2_stoich} * (y[{rn-1}*Lorg+2*{rn-1}+1]/A[0]) * k'
+                                        comp.firstbulk_string += f'- V[0] * {react_1_stoich} * (y[{cn-1}*Lorg+2*{cn-1}+2]/V[0]) * {react_2_stoich} * (y[{rn-1}*Lorg+2*{rn-1}+2]/V[0]) * k'
+                                        comp.bulk_string += f'- V[i] * {react_1_stoich} * (y[{cn-1}*Lorg+{cn}+i+{cn}]/V[i]) * {react_2_stoich} * (y[{rn-1}*Lorg+{rn}+i+{rn}]/V[i]) * k'
+                                        comp.core_string += f'- V[-1] * {react_1_stoich} * (y[{cn}*Lorg+{cn-1}]/V[-1]) * {react_2_stoich} * (y[{rn}*Lorg+{rn}+{rn-1}]/V[-1]) * k'
                                         
                                         
                                     # sorted array of cn and rn to define correct reaction constant (k)
@@ -1001,6 +1005,7 @@ class ModelBuilder():
                                     k_string = 'k'
                                     for n in sorted_cn_rn:
                                         comp.surf_string += f'_{n}'   
+                                        comp.static_surf_string += f'_{n}'
                                         comp.firstbulk_string += f'_{n}'
                                         comp.bulk_string += f'_{n}'
                                         comp.core_string += f'_{n}'
@@ -1022,11 +1027,11 @@ class ModelBuilder():
                          
                     elif mod_type.lower() == 'km-gap':
                         cn  = comp.component_number
-                        comp.surf_string += f'- A[0] * y[{cn-1}*Lorg+2*{cn-1}] * k1_{cn}'
-                        comp.static_surf_string += f'- A[0] * y[{cn-1}*Lorg+2*{cn-1}+1] * k1_{cn}'
-                        comp.firstbulk_string += f'- V[0] * y[{cn-1}*Lorg+2*{cn-1}+2] * k1_{cn}'
-                        comp.bulk_string += f'- V[i] * y[{cn-1}*Lorg+{cn}+i+{cn}] * k1_{cn}'
-                        comp.core_string += f'- V[-1] * y[{cn}*Lorg+{cn}+{cn-1}] * k1_{cn}'
+                        comp.surf_string += f'- A[0] * (y[{cn-1}*Lorg+2*{cn-1}]/A[0]) * k1_{cn}'
+                        comp.static_surf_string += f'- A[0] * (y[{cn-1}*Lorg+2*{cn-1}+1]/A[0]) * k1_{cn}'
+                        comp.firstbulk_string += f'- V[0] * (y[{cn-1}*Lorg+2*{cn-1}+2]/V[0]) * k1_{cn}'
+                        comp.bulk_string += f'- V[i] * (y[{cn-1}*Lorg+{cn}+i+{cn}]/V[i]) * k1_{cn}'
+                        comp.core_string += f'- V[-1] * (y[{cn}*Lorg+{cn}+{cn-1}]/V[-1]) * k1_{cn}'
                         
                         self.req_params.add(f'k1_{cn}')
                        
@@ -1046,13 +1051,13 @@ class ModelBuilder():
                                 comp.core_string += f'+ y[{r1}*Lorg+{r1-1}] * y[{r2}*Lorg+{r2-1}] * k'
                                 
                             elif mod_type.lower() == 'km-gap':
-                                comp.surf_string += f'+ A[0] * y[{cn-1}*Lorg+2*{cn-1}] * y[{rn-1}*Lorg+2*{rn-1}] * k'
-                                comp.static_surf_string += f'+ A[0] * y[{cn-1}*Lorg+2*{cn-1}+1] * y[{rn-1}*Lorg+2*{rn-1}+1] * k'
-                                comp.firstbulk_string += f'+ V[0] * y[{cn-1}*Lorg+2*{cn-1}+2] * y[{rn-1}*Lorg+2*{rn-1}+2] * k'
-                                comp.bulk_string += f'+ V[i] * y[{cn-1}*Lorg+{cn}+i+{cn}] * y[{rn-1}*Lorg+{rn}+i+{rn}] * k'
-                                comp.core_string += f'+ V[-1] * y[{cn}*Lorg+{cn-1}] * y[{rn}*Lorg+{rn}+{rn-1}] * k'
+                                comp.surf_string += f'+ A[0] * (y[{cn-1}*Lorg+2*{cn-1}]/A[0]) * (y[{rn-1}*Lorg+2*{rn-1}]/A[0]) * k'
+                                comp.static_surf_string += f'+ A[0] * (y[{cn-1}*Lorg+2*{cn-1}+1]/A[0]) * (y[{rn-1}*Lorg+2*{rn-1}+1]/A[0]) * k'
+                                comp.firstbulk_string += f'+ V[0] * (y[{cn-1}*Lorg+2*{cn-1}+2]/V[0]) * (y[{rn-1}*Lorg+2*{rn-1}+2]/V[0]) * k'
+                                comp.bulk_string += f'+ V[i] * (y[{cn-1}*Lorg+{cn}+i+{cn}]/V[i]) * (y[{rn-1}*Lorg+{rn}+i+{rn}]/V[i]) * k'
+                                comp.core_string += f'+ V[-1] *  (y[{cn}*Lorg+{cn-1}]/V[-1]) * (y[{rn}*Lorg+{rn}+{rn-1}]/V[-1]) * k'
                                 
-                            
+                    
                             # sorted array of cn and rn to define correct reaction constant (k)
                             sorted_r1_r2 = np.array([r1,r2])
                             sorted_r1_r2 = np.sort(sorted_r1_r2)
@@ -1061,6 +1066,7 @@ class ModelBuilder():
                             k_string = 'k'
                             for n in sorted_r1_r2:
                                 comp.surf_string += f'_{n}'   
+                                comp.static_surf_string += f'_{n}'
                                 comp.firstbulk_string += f'_{n}'
                                 comp.bulk_string += f'_{n}'
                                 comp.core_string += f'_{n}'
@@ -1083,18 +1089,19 @@ class ModelBuilder():
                                 comp.core_string += f'+ {react_1_stoich} * y[{r1}*Lorg+{r1-1}] * {react_2_stoich} * y[{r2}*Lorg+{r2-1}] * k'
                                 
                             elif mod_type.lower() == 'km-gap':
-                                comp.surf_string += f'+ A[0] * {react_1_stoich} * y[{cn-1}*Lorg+2*{cn-1}] * {react_2_stoich} * y[{rn-1}*Lorg+2*{rn-1}] * k'
-                                comp.static_surf_string += f'+ A[0] * {react_1_stoich} * y[{cn-1}*Lorg+2*{cn-1}+1] * {react_2_stoich} * y[{rn-1}*Lorg+2*{rn-1}+1] * k'
-                                comp.firstbulk_string += f'+ V[0] * {react_1_stoich} * y[{cn-1}*Lorg+2*{cn-1}+2] * {react_2_stoich} * y[{rn-1}*Lorg+2*{rn-1}+2] * k'
-                                comp.bulk_string += f'+ V[i] * {react_1_stoich} * y[{cn-1}*Lorg+{cn}+i+{cn}] * {react_2_stoich} * y[{rn-1}*Lorg+{rn}+i+{rn}] * k'
-                                comp.core_string += f'+ V[-1] * {react_1_stoich} * y[{cn}*Lorg+{cn-1}] * {react_2_stoich} * y[{rn}*Lorg+{rn}+{rn-1}] * k'
+                                comp.surf_string += f'- A[0] * {react_1_stoich} * (y[{cn-1}*Lorg+2*{cn-1}]/A[0]) * {react_2_stoich} * (y[{rn-1}*Lorg+2*{rn-1}]/A[0]) * k'
+                                comp.static_surf_string += f'+ A[0] * {react_1_stoich} * (y[{cn-1}*Lorg+2*{cn-1}+1]/A[0]) * {react_2_stoich} * (y[{rn-1}*Lorg+2*{rn-1}+1]/A[0]) * k'
+                                comp.firstbulk_string += f'+ V[0] * {react_1_stoich} * (y[{cn-1}*Lorg+2*{cn-1}+2]/V[0]) * {react_2_stoich} * (y[{rn-1}*Lorg+2*{rn-1}+2]/V[0]) * k'
+                                comp.bulk_string += f'+ V[i] * {react_1_stoich} * (y[{cn-1}*Lorg+{cn}+i+{cn}]/V[i]) * {react_2_stoich} * (y[{rn-1}*Lorg+{rn}+i+{rn}]/V[i]) * k'
+                                comp.core_string += f'+ V[-1] * {react_1_stoich} * (y[{cn}*Lorg+{cn-1}]/V[-1]) * {react_2_stoich} * (y[{rn}*Lorg+{rn}+{rn-1}]/V[-1]) * k'
                                 
-                    
+            
                             # sorted array of cn and rn to define correct reaction constant (k)
                             sorted_r1_r2 = np.array([r1,r2]).sort()
                             k_string = 'k'
                             for n in sorted_r1_r2:
                                 comp.surf_string += f'_{n}'   
+                                comp.static_surf_string += f'_{n}'
                                 comp.firstbulk_string += f'_{n}'
                                 comp.bulk_string += f'_{n}'
                                 comp.core_string += f'_{n}'
@@ -1110,6 +1117,8 @@ class ModelBuilder():
             # append the completed strings for this component to the master string list  
             master_string_list.append(f'\n    #----component number {comp.component_number}, {comp.name}----')
             master_string_list.append('\n'+four_space+comp.surf_string+'\n')
+            if mod_type.lower() == 'km-gap':
+                master_string_list.append(four_space+comp.static_surf_string+'\n')
             master_string_list.append(four_space+comp.firstbulk_string+'\n')
             master_string_list.append(four_space+'for i in np.arange(1,Lorg-1):'+'\n')
             master_string_list.append(four_space+four_space+comp.bulk_string+'\n')
