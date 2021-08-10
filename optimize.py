@@ -130,6 +130,7 @@ class Optimizer():
             
             cost_val = self.cost_func(norm_number_molecules)
             
+            
             #print(cost_val)
             return cost_val
         
@@ -152,7 +153,10 @@ class Optimizer():
         print('final cost function value = ')
         print(result.fun)
         
-       
+        sim.run(sim.run_params['n_layers'],sim.run_params['rp'],
+                sim.run_params['time_span'],sim.run_params['n_time'],
+                sim.run_params['V'],sim.run_params['A'],
+                sim.run_params['layer_thick'],Y0=sim.run_params['Y0'])
         
         return result
         

@@ -48,7 +48,9 @@ class Simulate():
                            'dense_output': None,
                            'Y0': None,
                            'ode_integrator': None,
-                           'ode_integrate_method': None}
+                           'ode_integrate_method': None,
+                           'atol':None,
+                           'rtol':None}
         
         self.surf_concs = {}
         self.bulk_concs = {}
@@ -94,7 +96,7 @@ class Simulate():
 
     def run(self,n_layers, rp, time_span, n_time, V, A, layer_thick, dense_output=False,
                  Y0=None, ode_integrator='scipy',
-                 ode_integrate_method='BDF'):
+                 ode_integrate_method='BDF', rtol=1e-3, atol=1e-6):
         '''
         Runs the simulation with the input parameters provided. 
         Model output is a scipy OdeResult object
@@ -114,6 +116,8 @@ class Simulate():
         self.run_params['Y0'] = Y0
         self.run_params['ode_integrator'] = ode_integrator
         self.run_params['ode_integrate_method'] = ode_integrate_method
+        self.run_params['rtol'] = rtol
+        self.run_params['atol'] = atol
             
         
         assert len(time_span) == 2, "time_span needs to be a sequence of 2 numbers"
@@ -131,7 +135,8 @@ class Simulate():
         start_int = time.time()
         model_output = integrate.solve_ivp(lambda t, y:model_import.dydt(t,y,params,V,A,n_layers,layer_thick),
                                                  (min(time_span),max(time_span)),
-                                                 Y0,t_eval=tspan,method=ode_integrate_method)
+                                                 Y0,t_eval=tspan,method=ode_integrate_method,
+                                                 rtol=rtol,atol=atol)
         end_int = time.time()
                 
         #print(f'Model run took {end_int-start_int:.2f} s')
@@ -310,7 +315,7 @@ class Simulate():
             plt.show()
 
 
-def initial_concentrations(model_type_obj,bulk_conc_dict,surf_conc_dict,n_layers,static_surf_conc_dict=None):
+def initial_concentrations(model_type,bulk_conc_dict,surf_conc_dict,n_layers,static_surf_conc_dict=None,V=None,A=None):
     '''
     Returns an array of initial bulk and surface concentrations (Y0)
     
@@ -324,7 +329,7 @@ def initial_concentrations(model_type_obj,bulk_conc_dict,surf_conc_dict,n_layers
     # initialise the Y0 array
     Y0 = np.zeros(n_layers * n_comps + n_comps)
     
-    if model_type_obj.model_type.lower() == 'km-gap':
+    if model_type.model_type.lower() == 'km-gap':
         Y0 = np.zeros(n_layers * n_comps + 2 * n_comps)
     
     # for each model component 
@@ -333,7 +338,7 @@ def initial_concentrations(model_type_obj,bulk_conc_dict,surf_conc_dict,n_layers
         bulk_conc_val = bulk_conc_dict[f'{i+1}']
         surf_conc_val = surf_conc_dict[f'{i+1}']
         
-        if model_type_obj.model_type.lower() == 'km-sub':
+        if model_type.model_type.lower() == 'km-sub':
             # define surface conc
             Y0[i*n_layers+i] = surf_conc_val
             
@@ -341,24 +346,27 @@ def initial_concentrations(model_type_obj,bulk_conc_dict,surf_conc_dict,n_layers
             for k in np.arange(n_layers*i+1+i,(i+1)*n_layers+i+1):
                 Y0[k] = bulk_conc_val
                 
-        elif model_type_obj.model_type.lower() == 'km-gap':
+        elif model_type.model_type.lower() == 'km-gap':
+            assert type(V) != None, "supply V array for calculation of initial number of molecules in each layer (KM-GAP)"
+            assert type(A) != None, "supply A array for calculation of initial number of molecules in surface layers (KM-GAP)"
+            
             static_surf_conc = static_surf_conc_dict[f'{i+1}']
             # define surface conc
-            Y0[i*n_layers+2*i] = surf_conc_val
+            Y0[i*n_layers+2*i] = surf_conc_val * A[0]
             
             # define static surface conc
-            Y0[i*n_layers+2*i+1] = static_surf_conc
+            Y0[i*n_layers+2*i+1] = static_surf_conc * A[0]
             
             # define bulk concs
-            for k in np.arange(i*n_layers+2*i+2,(i+1)*n_layers+(i+1)+i+1):
-                Y0[k] = bulk_conc_val
+            for ind,k in enumerate(np.arange(i*n_layers+2*i+2,(i+1)*n_layers+(i+1)+i+1)):
+                Y0[k] = bulk_conc_val * V[ind] 
             
         
         
     return Y0
         
 
-def make_layers(n_layers,bulk_radius,geometry):
+def make_layers(model_type,n_layers,bulk_radius,geometry,n_components=None,y0=None,parameter_dict=None):
     '''
     defines the volume, surface area and layer thickness for each model layer
     
@@ -367,7 +375,21 @@ def make_layers(n_layers,bulk_radius,geometry):
     bulk radius is normally defined as the particle radius - molecular diameter
     
     '''
-    
+    # actually, get y0 from initial conc...
+    # if model_type.mod_type.lower() == 'km-gap':
+    #     assert type(y0) != None, "y0 needs to be supplied to calculate V from number of molecules"
+    #     assert type(n_components) == int, "n_components needs to be supplied as an integer"
+    #     assert type(parameter_dict) == dict, "parameter_dict needs to be supplied to calculate V from number of molecules and molecular volume"
+        
+    #     V = np.zeros(n_layers)
+        
+    #     for i in range(n_components):
+    #         cn = i + 1
+    #         delta_comp = parameter_dict[f'delta_{cn}']
+    #         N_bulk_comp = y0[(cn-1)*n_layers+2*(cn-1)+2:cn*n_layers+cn+(cn-1)+1]
+    #         v_comp = delta_comp**3
+    #         Vtot_comp = N_bulk_comp * v_comp
+    #         V = V + Vtot_comp
         
     delta = bulk_radius/n_layers
     
