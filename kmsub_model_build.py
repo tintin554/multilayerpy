@@ -202,6 +202,9 @@ class ModelComponent:
         
         self.reactions_added = False
         
+        self.mass_transport_rate_strings = []
+        self.mass_transport_rate_inloop_strings = []
+        
         if self.reaction_scheme.model_type.model_type.lower() == 'km-sub':
             # define initial strings for each differential equation to be solved
             # remembering Python counts from 0
@@ -254,7 +257,29 @@ class ModelComponent:
                 
         elif self.reaction_scheme.model_type.model_type.lower() == 'km-gap':
             # build strings for km-gap, using number of molecules instead of molec cm-3
+            # remember to divide by A or V to get molec -3 (e.g. Jss_s calculation)
             cn = self.component_number
+            
+            # mass fluxes
+            Jss_s_str = f'Jss_s_{cn} = kss_s_{cn} * (y[{cn-1}*Lorg+2*{cn-1}+1]/A[0]) '
+            Js_ss_str = f'Js_ss_{cn} = ks_ss_{cn} * (y[{cn-1}*Lorg+2*{cn-1}]/A[0]) '
+            Jssb_str = f'Jssb_{cn} = kssb_{cn} * (y[{cn-1}*Lorg+2*{cn-1}+1]/A[0]) '
+            Jbss_str = f'Jbss_{cn} = kbss_{cn} * (y[{cn-1}*Lorg+2*{cn-1}+2]/V[0]) '
+            Jb1b2_str = f'Jb1b2_{cn} = kbb_{cn}[0] * (y[{cn-1}*Lorg+2*{cn-1}+2+1]/V[1] - y[{cn-1}*Lorg+2*{cn-1}+2]/V[0]) '
+            Jbb_minus1_str = f'Jbb_minus1_{cn} = kbb_{cn}[i] * (y[{cn-1}*Lorg+{cn}+i+{cn}-1]/V[i-1] - y[{cn-1}*Lorg+{cn}+i+{cn}]/V[i]) '
+            Jbb_plus1_str = f'Jbb_plus1_{cn} = kbb_{cn}[i+1] * (y[{cn-1}*Lorg+{cn}+i+{cn}+1]/V[i+1] - y[{cn-1}*Lorg+{cn}+i+{cn}]/V[i])'
+            Jbb_core_str = f'Jbb_core_{cn} = kbb_{cn}[-1] * (y[{cn}*Lorg+{cn}+{cn-1}-1]/V[-2] - y[{cn}*Lorg+{cn}+{cn-1}]/V[-1]) '
+            
+            collected_mass_transport_strings = [Jss_s_str,Js_ss_str,Jssb_str,
+                                                Jbss_str,Jb1b2_str,
+                                                Jbb_core_str]
+            collected_mass_transport_inloop_strings = [Jbb_minus1_str,Jbb_plus1_str]
+            
+            for mass_transport_term in collected_mass_transport_strings: 
+                self.mass_transport_rate_strings.append(mass_transport_term)
+                
+            for mass_transport_loop_term in collected_mass_transport_inloop_strings:
+                self.mass_transport_rate_inloop_strings.append(mass_transport_loop_term) 
             
             self.surf_string = f'dydt[{cn-1}*Lorg+2*{cn-1}] = '
             self.static_surf_string = f'dydt[{cn-1}*Lorg+2*{cn-1}+1] = '
@@ -263,13 +288,13 @@ class ModelComponent:
             self.core_string = f'dydt[{cn}*Lorg+{cn}+{cn-1}] = '
             
             # adding transport terms to each string
-            self.surf_string += f'kss_s_{cn} * (y[{cn-1}*Lorg+2*{cn-1}+1]/A[0]) * A[0] - ks_ss_{cn} * (y[{cn-1}*Lorg+2*{cn-1}]/A[0]) * A[0] '
-            self.static_surf_string += f'ks_ss_{cn} * (y[{cn-1}*Lorg+2*{cn-1}]/A[0]) * A[0] - kss_s_{cn} * (y[{cn-1}*Lorg+2*{cn-1}+1]/A[0]) * A[0] + (kbss_{cn} * (y[{cn-1}*Lorg+2*{cn-1}+2]/A[0]) - kssb_{cn} * (y[{cn-1}*Lorg+2*{cn-1}+1]/A[0])) '
-            self.firstbulk_string += f'kssb_{cn} * (y[{cn-1}*Lorg+2*{cn-1}+1]/A[0]) * A[0] - kbss_{cn} * (y[{cn-1}*Lorg+2*{cn-1}+2]/V[0]) * A[0] + kbb_{cn}[0] * (y[{cn-1}*Lorg+2*{cn-1}+2+1]/V[1] - y[{cn-1}*Lorg+2*{cn-1}+2]/V[0]) * A[1] '
+            self.surf_string += f'Jss_s_{cn} * A[0] - Js_ss_{cn} * A[0] '
+            self.static_surf_string += f'Js_ss_{cn} * A[0] - Jss_s_{cn} * A[0] + Jbss_{cn} * A[0] - Jssb_{cn} * A[0] '
+            self.firstbulk_string += f'Jssb_{cn} * A[0] - Jbss_{cn} * A[0] + Jb1b2_{cn} * A[1] '
                                       
-            self.bulk_string += f'kbb_{cn}[i] * (y[{cn-1}*Lorg+{cn}+i+{cn}-1]/V[i-1] - y[{cn-1}*Lorg+{cn}+i+{cn}]/V[i]) * A[i] + kbb_{cn}[i+1] * (y[{cn-1}*Lorg+{cn}+i+{cn}+1]/V[i+1] - y[{cn-1}*Lorg+{cn}+i+{cn}]/V[i]) * A[i+1] '
+            self.bulk_string += f'Jbb_minus1_{cn} * A[i] + Jbb_plus1_{cn} * A[i+1] '
                                        
-            self.core_string += f'kbb_{cn}[-1] * (y[{cn}*Lorg+{cn}+{cn-1}-1]/V[-2] - y[{cn}*Lorg+{cn}+{cn-1}]/V[-1]) * A[-1] '
+            self.core_string += f'Jbb_core_{cn} * A[-1] '
 
 class DiffusionRegime():
     '''
@@ -899,6 +924,12 @@ class ModelBuilder():
         # ks_ss (km-gap)
         for s in diff_regime.ks_ss_strings:
             master_string_list.append(four_space+s+'\n')
+            
+        # now add mass fluxes for each component
+        for comp in mod_comps.values():
+            # loop through mass transport strings (Jbb, Jssb etc.)
+            for s in comp.mass_transport_rate_strings:
+                master_string_list.append(four_space+s+'\n')
         
          
         '''
@@ -1129,6 +1160,10 @@ class ModelBuilder():
                 master_string_list.append(four_space+comp.static_surf_string+'\n')
             master_string_list.append(four_space+comp.firstbulk_string+'\n')
             master_string_list.append(four_space+'for i in np.arange(1,Lorg-1):'+'\n')
+            if mod_type.lower() == 'km-gap':
+                for s in comp.mass_transport_rate_inloop_strings:
+                    master_string_list.append(four_space+four_space+s+'\n')
+                
             master_string_list.append(four_space+four_space+comp.bulk_string+'\n')
             master_string_list.append(four_space+comp.core_string+'\n')                     
         
