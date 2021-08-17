@@ -42,7 +42,7 @@ class ReactionScheme:
     Defining the reaction scheme (what reacts with what)
     '''
     
-    def __init__(self,model_type_object,name='rxn_scheme',n_components=None,
+    def __init__(self,model_type_object,name='rxn_scheme',
                  reaction_tuple_list=None,products_of_reactions_list=[],
                  component_names=[],reactant_stoich=None, product_stoich=None):
         
@@ -53,7 +53,7 @@ class ReactionScheme:
         self.name = name # *error if not a string
         
         # number of components
-        self.n_components = n_components # *error if None
+        self.n_components = None 
     
         # tuple of component reactions e.g. (1,2) means component 1 reacts with 2
         # for first order decay, e.g. (1,0) means component 1 decays first order
@@ -70,20 +70,12 @@ class ReactionScheme:
         # list of component names, defaults to empty list if nothing supplied
         self.comp_names = component_names # *error if not list of strings with len = n_components
         
-        # make a "checked" state, this would need to be True to be used in the model builder
+        # make a "checked" state
         self.checked = False
 
-        
-    def validate_reaction_scheme(self):
-        '''
-        XXX
-        '''
+    
         # check name value is a string 
-        try:
-            type(self.name) == str
-            
-        except TypeError:
-            print('The name needs to be a string')
+        assert type(self.name) == str, 'The name needs to be a string'
             
         # check n_components = number of unique numbers in rxn & prod. tuples
         unique_comps = set([])
@@ -106,22 +98,9 @@ class ReactionScheme:
                 unique_comps.add(x)
                 unique_comps.add(y)
             
-        # if the number of unique components != len(unique_comps), 
-        # error - either too many or too few components, ask to check if this is
-        # correct
-        try:
-            assert (self.n_components == len(unique_comps)) == True 
-            ##** sort this out so that the error message works**
+        # set the number of components
+        self.n_components = len(unique_comps)
         
-        except AssertionError:
-            if float(self.n_components) > float(len(unique_comps)):
-                diff = float(self.n_components) - float(len(unique_comps))
-                print(f'n_components ({self.n_components}) is {diff} more than the unique reactants + products provided in reaction and product list of tuples')
-            
-            if float(self.n_components) < float(len(unique_comps)):
-                diff = float(len(unique_comps)) - float(self.n_components)  
-                print(f'n_components ({self.n_components}) is {diff} less than the unique reactants + products provided in reaction and product list of tuples')
-            
         # comp names should be strings
         isstring_bool_list = []
         for name in self.comp_names:
@@ -138,8 +117,13 @@ class ReactionScheme:
         self.checked = True
         
     def display(self):
+        '''
+        Function which prints the reaction scheme to the console
+
+        '''
         strings = ['#########################################################',
                    'Reaction scheme: ' + self.name,
+                   'Model type: ' + self.model_type.model_type,
                    '** No stoichiometry shown **',
                    ]
         for i in range(len(self.reaction_tuples)):
@@ -163,13 +147,14 @@ class ReactionScheme:
         for s in strings:
             print(s)
     
+    
 class ModelComponent:
     '''
     Model component class with information about it's role in the reaction scheme
     '''
     
-    def __init__(self,component_number,reaction_scheme,diff_coeff=None,
-                 name=None,gas=False,compartmental=False,diameter=None):
+    def __init__(self,component_number,reaction_scheme,
+                 name=None,gas=False,volatile=False):
         # make strings representing surf, sub-surf, bulk and core dydt
         # dependent on reaction scheme
         # initially account for diffusion
@@ -182,19 +167,11 @@ class ModelComponent:
         elif name == None and gas == True:
             self.name = 'X{}'.format(component_number)
             
-        self.w = None # mean molecular thermal velocity of component in gas phase cm s-1
-        
-        self.diff_coeff = diff_coeff # cm2 s-1
         
         self.component_number = component_number
         # if component_number == None or 0, error
         
-        # the effective molecular diameter 
-        self.diameter = diameter # cm
-        
         self.reaction_scheme = reaction_scheme
-        
-        self.compartmental = compartmental
         
         self.param_dict = None
         
@@ -992,7 +969,7 @@ class ModelBuilder():
                                         comp.static_surf_string += f'- A[0] * (y[{cn-1}*Lorg+2*{cn-1}+1]/A[0]) * (y[{rn-1}*Lorg+2*{rn-1}+1]/A[0]) * k'
                                         comp.firstbulk_string += f'- V[0] * (y[{cn-1}*Lorg+2*{cn-1}+2]/V[0]) * (y[{rn-1}*Lorg+2*{rn-1}+2]/V[0]) * k'
                                         comp.bulk_string += f'- V[i] * (y[{cn-1}*Lorg+{cn}+i+{cn}]/V[i]) * (y[{rn-1}*Lorg+{rn}+i+{rn}]/V[i]) * k'
-                                        comp.core_string += f'- V[-1] *  (y[{cn}*Lorg+{cn-1}+1]/V[-1]) * (y[{rn}*Lorg+{rn}+{rn-1}+1]/V[-1]) * k'
+                                        comp.core_string += f'- V[-1] *  (y[{cn}*Lorg+{cn}+{cn-1}]/V[-1]) * (y[{rn}*Lorg+{rn}+{rn-1}]/V[-1]) * k'
                                         
                                         
                                     # sorted array of cn and rn to define correct reaction constant (k)
@@ -1004,7 +981,8 @@ class ModelBuilder():
                                     for n in sorted_cn_rn:
                                         comp.surf_string += f'_{n}'   
                                         comp.firstbulk_string += f'_{n}'
-                                        comp.static_surf_string += f'_{n}'
+                                        if mod_type.lower() == 'km-gap':
+                                            comp.static_surf_string += f'_{n}'
                                         comp.bulk_string += f'_{n}'
                                         comp.core_string += f'_{n}'
                                         k_string += f'_{n}'
@@ -1030,7 +1008,7 @@ class ModelBuilder():
                                         comp.static_surf_string += f'- A[0] * {react_1_stoich} * (y[{cn-1}*Lorg+2*{cn-1}+1]/A[0]) * {react_2_stoich} * (y[{rn-1}*Lorg+2*{rn-1}+1]/A[0]) * k'
                                         comp.firstbulk_string += f'- V[0] * {react_1_stoich} * (y[{cn-1}*Lorg+2*{cn-1}+2]/V[0]) * {react_2_stoich} * (y[{rn-1}*Lorg+2*{rn-1}+2]/V[0]) * k'
                                         comp.bulk_string += f'- V[i] * {react_1_stoich} * (y[{cn-1}*Lorg+{cn}+i+{cn}]/V[i]) * {react_2_stoich} * (y[{rn-1}*Lorg+{rn}+i+{rn}]/V[i]) * k'
-                                        comp.core_string += f'- V[-1] * {react_1_stoich} * (y[{cn}*Lorg+{cn-1}+1]/V[-1]) * {react_2_stoich} * (y[{rn}*Lorg+{rn}+{rn-1}+1]/V[-1]) * k'
+                                        comp.core_string += f'- V[-1] * {react_1_stoich} * (y[{cn}*Lorg+{cn}+{cn-1}]/V[-1]) * {react_2_stoich} * (y[{rn}*Lorg+{rn}+{rn-1}]/V[-1]) * k'
                                         
                                         
                                     # sorted array of cn and rn to define correct reaction constant (k)
@@ -1038,7 +1016,8 @@ class ModelBuilder():
                                     k_string = 'k'
                                     for n in sorted_cn_rn:
                                         comp.surf_string += f'_{n}'   
-                                        comp.static_surf_string += f'_{n}'
+                                        if mod_type.lower() == 'km-gap':
+                                            comp.static_surf_string += f'_{n}'
                                         comp.firstbulk_string += f'_{n}'
                                         comp.bulk_string += f'_{n}'
                                         comp.core_string += f'_{n}'
@@ -1066,7 +1045,7 @@ class ModelBuilder():
                         comp.static_surf_string += f'- A[0] * (y[{cn-1}*Lorg+2*{cn-1}+1]/A[0]) * k1_{cn}'
                         comp.firstbulk_string += f'- V[0] * (y[{cn-1}*Lorg+2*{cn-1}+2]/V[0]) * k1_{cn}'
                         comp.bulk_string += f'- V[i] * (y[{cn-1}*Lorg+{cn}+i+{cn}]/V[i]) * k1_{cn}'
-                        comp.core_string += f'- V[-1] * (y[{cn}*Lorg+{cn}+{cn-1}+1]/V[-1]) * k1_{cn}'
+                        comp.core_string += f'- V[-1] * (y[{cn}*Lorg+{cn}+{cn-1}]/V[-1]) * k1_{cn}'
                         
                         self.req_params.add(f'k1_{cn}')
                        
@@ -1074,6 +1053,7 @@ class ModelBuilder():
                 if int(comp.component_number) in products:
                                 
                         r1, r2 = reactants
+                        
                         
                         # if no stoich given, assume a coefficient of 1
                         if reactant_stoich == None:
@@ -1086,11 +1066,11 @@ class ModelBuilder():
                                 comp.core_string += f'+ y[{r1}*Lorg+{r1-1}] * y[{r2}*Lorg+{r2-1}] * k'
                                 
                             elif mod_type.lower() == 'km-gap':
-                                comp.surf_string += f'+ A[0] * (y[{cn-1}*Lorg+2*{cn-1}]/A[0]) * (y[{rn-1}*Lorg+2*{rn-1}]/A[0]) * k'
-                                comp.static_surf_string += f'+ A[0] * (y[{cn-1}*Lorg+2*{cn-1}+1]/A[0]) * (y[{rn-1}*Lorg+2*{rn-1}+1]/A[0]) * k'
-                                comp.firstbulk_string += f'+ V[0] * (y[{cn-1}*Lorg+2*{cn-1}+2]/V[0]) * (y[{rn-1}*Lorg+2*{rn-1}+2]/V[0]) * k'
-                                comp.bulk_string += f'+ V[i] * (y[{cn-1}*Lorg+{cn}+i+{cn}]/V[i]) * (y[{rn-1}*Lorg+{rn}+i+{rn}]/V[i]) * k'
-                                comp.core_string += f'+ V[-1] *  (y[{cn}*Lorg+{cn-1}+1]/V[-1]) * (y[{rn}*Lorg+{rn}+{rn-1}+1]/V[-1]) * k'
+                                comp.surf_string += f'+ A[0] * (y[{r1-1}*Lorg+2*{r1-1}]/A[0]) * (y[{r2-1}*Lorg+2*{r2-1}]/A[0]) * k'
+                                comp.static_surf_string += f'+ A[0] * (y[{r1-1}*Lorg+2*{r1-1}+1]/A[0]) * (y[{r2-1}*Lorg+2*{r2-1}+1]/A[0]) * k'
+                                comp.firstbulk_string += f'+ V[0] * (y[{r1-1}*Lorg+2*{r1-1}+2]/V[0]) * (y[{r2-1}*Lorg+2*{r2-1}+2]/V[0]) * k'
+                                comp.bulk_string += f'+ V[i] * (y[{r1-1}*Lorg+{r1}+i+{r1}]/V[i]) * (y[{r2-1}*Lorg+{r2}+i+{r2}]/V[i]) * k'
+                                comp.core_string += f'+ V[-1] *  (y[{r1}*Lorg+{r1}+{r1-1}]/V[-1]) * (y[{r2}*Lorg+{r2}+{r2-1}]/V[-1]) * k'
                                 
                     
                             # sorted array of cn and rn to define correct reaction constant (k)
@@ -1101,7 +1081,8 @@ class ModelBuilder():
                             k_string = 'k'
                             for n in sorted_r1_r2:
                                 comp.surf_string += f'_{n}'   
-                                comp.static_surf_string += f'_{n}'
+                                if mod_type.lower() == 'km-gap':
+                                    comp.static_surf_string += f'_{n}'
                                 comp.firstbulk_string += f'_{n}'
                                 comp.bulk_string += f'_{n}'
                                 comp.core_string += f'_{n}'
@@ -1126,11 +1107,11 @@ class ModelBuilder():
                                 comp.core_string += f'+ {react_1_stoich} * y[{r1}*Lorg+{r1-1}] * {react_2_stoich} * y[{r2}*Lorg+{r2-1}] * k'
                                 
                             elif mod_type.lower() == 'km-gap':
-                                comp.surf_string += f'- A[0] * {react_1_stoich} * (y[{cn-1}*Lorg+2*{cn-1}]/A[0]) * {react_2_stoich} * (y[{rn-1}*Lorg+2*{rn-1}]/A[0]) * k'
-                                comp.static_surf_string += f'+ A[0] * {react_1_stoich} * (y[{cn-1}*Lorg+2*{cn-1}+1]/A[0]) * {react_2_stoich} * (y[{rn-1}*Lorg+2*{rn-1}+1]/A[0]) * k'
-                                comp.firstbulk_string += f'+ V[0] * {react_1_stoich} * (y[{cn-1}*Lorg+2*{cn-1}+2]/V[0]) * {react_2_stoich} * (y[{rn-1}*Lorg+2*{rn-1}+2]/V[0]) * k'
-                                comp.bulk_string += f'+ V[i] * {react_1_stoich} * (y[{cn-1}*Lorg+{cn}+i+{cn}]/V[i]) * {react_2_stoich} * (y[{rn-1}*Lorg+{rn}+i+{rn}]/V[i]) * k'
-                                comp.core_string += f'+ V[-1] * {react_1_stoich} * (y[{cn}*Lorg+{cn-1}+1]/V[-1]) * {react_2_stoich} * (y[{rn}*Lorg+{rn}+{rn-1}+1]/V[-1]) * k'
+                                comp.surf_string += f'- A[0] * {react_1_stoich} * (y[{r1-1}*Lorg+2*{r1-1}]/A[0]) * {react_2_stoich} * (y[{r2-1}*Lorg+2*{r2-1}]/A[0]) * k'
+                                comp.static_surf_string += f'+ A[0] * {react_1_stoich} * (y[{r1-1}*Lorg+2*{r1-1}+1]/A[0]) * {react_2_stoich} * (y[{r2-1}*Lorg+2*{r2-1}+1]/A[0]) * k'
+                                comp.firstbulk_string += f'+ V[0] * {react_1_stoich} * (y[{r1-1}*Lorg+2*{r1-1}+2]/V[0]) * {react_2_stoich} * (y[{r2-1}*Lorg+2*{r2-1}+2]/V[0]) * k'
+                                comp.bulk_string += f'+ V[i] * {react_1_stoich} * (y[{r1-1}*Lorg+{r1}+i+{r1}]/V[i]) * {react_2_stoich} * (y[{r2-1}*Lorg+{r2}+i+{r2}]/V[i]) * k'
+                                comp.core_string += f'+ V[-1] * {react_1_stoich} * (y[{r1}*Lorg+{r1}+{r1-1}]/V[-1]) * {react_2_stoich} * (y[{r2}*Lorg+{r2}+{r2-1}]/V[-1]) * k'
                                 
             
                             # sorted array of cn and rn to define correct reaction constant (k)
@@ -1138,7 +1119,8 @@ class ModelBuilder():
                             k_string = 'k'
                             for n in sorted_r1_r2:
                                 comp.surf_string += f'_{n}'   
-                                comp.static_surf_string += f'_{n}'
+                                if mod_type.lower() == 'km-gap':
+                                    comp.static_surf_string += f'_{n}'
                                 comp.firstbulk_string += f'_{n}'
                                 comp.bulk_string += f'_{n}'
                                 comp.core_string += f'_{n}'
