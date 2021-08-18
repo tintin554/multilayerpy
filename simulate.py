@@ -70,14 +70,14 @@ class Simulate():
             cn = i + 1
             # volume
             N_bulk = output[:,(cn-1)*n_layers+2*(cn-1)+2:(cn)*n_layers+(cn)+(cn-1)+1]
-            print('len N_bulk= ',len(N_bulk))
+            #print('len N_bulk= ',len(N_bulk))
             v_molec = self.parameters[f'delta_{cn}'].value ** 3
             V_tot_comp = N_bulk * v_molec
             if i == 0:
                 Vtot = V_tot_comp
             else:
                 Vtot = Vtot + V_tot_comp
-        print('shape Vtot= ',Vtot.shape)
+        #print('shape Vtot= ',Vtot.shape)
         # area (spherical geom)
         sum_V = np.sum(Vtot,axis=1)
         cumsum_V = np.cumsum(Vtot,axis=1)
@@ -85,12 +85,15 @@ class Simulate():
         r_pos = np.cbrt((3.0/4*np.pi) * np.flip(cumsum_V))
         A = 4 * np.pi * r_pos**2
         
+        
         # layer thickness
-        layer_thick = r_pos[:-1] - r_pos[1:]
-        layer_thick = np.vstack((layer_thick,r_pos[-1]))
+        layer_thick = r_pos[:,:-1] - r_pos[:,1:]
+        print('shape layer thick ', layer_thick.shape)
+        print('shape rpos ', r_pos.shape)
+        layer_thick = np.column_stack((layer_thick,r_pos[:,-1]))
         
         
-        print('shape sumV= ',sum_V.shape,'shape A= ',A.shape, 'shape layer_thick= ',layer_thick.shape)
+        #print('shape sumV= ',sum_V.shape,'shape A= ',A.shape, 'shape layer_thick= ',layer_thick.shape)
         return Vtot, A, layer_thick
         
 
@@ -136,7 +139,7 @@ class Simulate():
         model_output = integrate.solve_ivp(lambda t, y:model_import.dydt(t,y,params,V,A,n_layers,layer_thick),
                                                  (min(time_span),max(time_span)),
                                                  Y0,t_eval=tspan,method=ode_integrate_method,
-                                                 rtol=rtol,atol=atol)
+                                                 rtol=rtol,atol=atol,dense_output=dense_output)
         end_int = time.time()
                 
         #print(f'Model run took {end_int-start_int:.2f} s')
@@ -219,6 +222,11 @@ class Simulate():
         
     def plot(self,norm=False,data=None):
         # ACCOUNT FOR KM-GAP
+        mod_type = self.model.model_type.lower()
+        # km-gap: V, A and layer thickness over time
+        if  mod_type == 'km-gap':
+            Vt, At, thick_t = self.calc_Vt_At_layer_thick(self.model_output)
+        
         model_output = self.model_output.y.T 
         
         n_layers = self.run_params['n_layers']
@@ -227,11 +235,19 @@ class Simulate():
         
         # plot surface concentrations
         plt.figure()
-        plt.title('Surface concentrations',fontsize='large')
+        
+        if mod_type == 'km-sub':
+            plt.title('Surface concentrations',fontsize='large')
+            
+        elif mod_type == 'km-gap':
+            plt.title('Static surface layer concentrations',fontsize='large')
         
         for i in range(n_comps):
             comp_name = mod_comps[f'{i+1}'].name
-            plt.plot(self.model_output.t,self.surf_concs[f'{i+1}'],label=comp_name)
+            if mod_type == 'km-sub':
+                plt.plot(self.model_output.t,self.surf_concs[f'{i+1}'],label=comp_name)
+            elif mod_type == 'km-gap':
+                plt.plot(self.model_output.t,self.static_surf_concs[f'{i+1}'],label=comp_name)
         
         plt.ylabel('Surface conc. / cm$^{-2}$',fontsize='large')
         plt.xlabel('Time / s',fontsize='large')
@@ -253,9 +269,13 @@ class Simulate():
         
         for i in range(n_comps):
             comp_name = mod_comps[f'{i+1}'].name
-            
-            surf_no = self.surf_concs[f'{i+1}'] * self.run_params['A'][0]
-            bulk_no = self.bulk_concs[f'{i+1}'] * self.run_params['V']
+            if mod_type == 'km-sub':
+                surf_no = self.surf_concs[f'{i+1}'] * self.run_params['A'][0]
+                bulk_no = self.bulk_concs[f'{i+1}'] * self.run_params['V']
+            elif mod_type == 'km-gap':
+                surf_no = self.surf_concs[f'{i+1}'] * At[:,0]
+                bulk_no = self.bulk_concs[f'{i+1}'] * Vt
+                
             tot_bulk_no = np.sum(bulk_no,axis=1)
             total_no = surf_no + tot_bulk_no
             
@@ -315,7 +335,8 @@ class Simulate():
             plt.show()
 
 
-def initial_concentrations(model_type,bulk_conc_dict,surf_conc_dict,n_layers,static_surf_conc_dict=None,V=None,A=None):
+def initial_concentrations(model_type,bulk_conc_dict,surf_conc_dict,n_layers,
+                           static_surf_conc_dict=None,V=None,A=None):
     '''
     Returns an array of initial bulk and surface concentrations (Y0)
     
@@ -347,8 +368,8 @@ def initial_concentrations(model_type,bulk_conc_dict,surf_conc_dict,n_layers,sta
                 Y0[k] = bulk_conc_val
                 
         elif model_type.model_type.lower() == 'km-gap':
-            assert type(V) != None, "supply V array for calculation of initial number of molecules in each layer (KM-GAP)"
-            assert type(A) != None, "supply A array for calculation of initial number of molecules in surface layers (KM-GAP)"
+            assert type(V) != None, "supply Vol. array for calculation of initial number of molecules in each layer (KM-GAP)"
+            assert type(A) != None, "supply Area array for calculation of initial number of molecules in surface layers (KM-GAP)"
             
             static_surf_conc = static_surf_conc_dict[f'{i+1}']
             # define surface conc
