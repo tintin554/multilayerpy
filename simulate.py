@@ -81,13 +81,38 @@ class Simulate():
         # area (spherical geom)
         sum_V = np.sum(Vtot,axis=1)
         cumsum_V = np.cumsum(Vtot,axis=1)
+        
+        layer_thick = []
+        
+        # calc layer thick
+        for ind, val in enumerate(cumsum_V):
+            t_slice_v_vals = np.flip(cumsum_V[ind,:])
+            # if ind == 0:
+            #     print('t_slice_v_vals ',t_slice_v_vals)
+            thick_vals_t = []
+            for i, v in enumerate(t_slice_v_vals):
+                if i != len(t_slice_v_vals) - 1:
+                    v_next_shell = t_slice_v_vals[i+1]
+                else: 
+                    v_next_shell = 0.0
+                r_shell = np.cbrt((3*v/4*np.pi))
+                r_next_shell = np.cbrt((3*v_next_shell/4*np.pi))
+                
+                thick = r_shell - r_next_shell
+                thick_vals_t.append(thick)
+            if ind == 0:
+                layer_thick = np.array(thick_vals_t)
+            else:
+                layer_thick = np.vstack((layer_thick,thick_vals_t))
+        
+        
         print('shape cumsum_V= ',cumsum_V.shape)
-        r_pos = np.cbrt((3.0/4*np.pi) * np.flip(cumsum_V))
+        r_pos = np.cbrt((3.0* np.flip(cumsum_V))/(4*np.pi))
         A = 4 * np.pi * r_pos**2
         
         
         # layer thickness
-        layer_thick = r_pos[:,:-1] - r_pos[:,1:]
+        #layer_thick = r_pos[:,:-1] - r_pos[:,1:]
         print('shape layer thick ', layer_thick.shape)
         print('shape rpos ', r_pos.shape)
         layer_thick = np.column_stack((layer_thick,r_pos[:,-1]))
@@ -336,7 +361,7 @@ class Simulate():
 
 
 def initial_concentrations(model_type,bulk_conc_dict,surf_conc_dict,n_layers,
-                           static_surf_conc_dict=None,V=None,A=None):
+                           static_surf_conc_dict=None,V=None,A=None,parameter_dict=None,vol_frac=1.0):
     '''
     Returns an array of initial bulk and surface concentrations (Y0)
     
@@ -370,19 +395,31 @@ def initial_concentrations(model_type,bulk_conc_dict,surf_conc_dict,n_layers,
         elif model_type.model_type.lower() == 'km-gap':
             assert type(V) != None, "supply Vol. array for calculation of initial number of molecules in each layer (KM-GAP)"
             assert type(A) != None, "supply Area array for calculation of initial number of molecules in surface layers (KM-GAP)"
+            assert type(parameter_dict) != None, "supply Model Comonents dictionary for calculation of initial number of molecules in each layer (KM-GAP)"
             
-            static_surf_conc = static_surf_conc_dict[f'{i+1}']
-            # define surface conc
-            Y0[i*n_layers+2*i] = surf_conc_val * A[0]
+            if float(bulk_conc_val) > 1.0:
             
-            # define static surface conc
-            Y0[i*n_layers+2*i+1] = static_surf_conc * A[0]
+                delta = parameter_dict[f'delta_{i+1}'].value
+                v_molec = delta ** 3
+                
+                static_surf_conc = static_surf_conc_dict[f'{i+1}']
+                # define surface conc
+                Y0[i*n_layers+2*i] = surf_conc_val * A[0]
+                
+                # define static surface conc
+                Y0[i*n_layers+2*i+1] = static_surf_conc * A[0]
+                
+                # define bulk concs
+                for ind,k in enumerate(np.arange(i*n_layers+2*i+2,(i+1)*n_layers+(i+1)+i+1)):
+                    # accounting for volume fraction if particle starts as a mixture
+                    if type(vol_frac) != int and type(vol_frac) != float:
+                        volume_fraction = vol_frac[i]
+                    else:
+                        volume_fraction = vol_frac
+                    
+                    #Y0[k] = bulk_conc_val * V[ind] 
+                    Y0[k] = (V[ind] * volume_fraction) / v_molec
             
-            # define bulk concs
-            for ind,k in enumerate(np.arange(i*n_layers+2*i+2,(i+1)*n_layers+(i+1)+i+1)):
-                Y0[k] = bulk_conc_val * V[ind] 
-            
-        
         
     return Y0
         
