@@ -1,24 +1,27 @@
 # -*- coding: utf-8 -*-
 """
-Created on Thu Jan 28 19:19:11 2021
+@author: Adam Milsom
 
-@author: Adam
+    MultilayerPy - build, run and optimise kinetic multi-layer models for 
+    aerosol particles and films.
+    
+    Copyright (C) 2021  Adam Milsom
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <https://www.gnu.org/licenses/>.
+    
 """
 
-'''
-Writing a custom KM-SUB model
-'''
-
-'''
-input = dict with each col representing a component (starting from comp 0)
-numer of reactions
-
-
-rows:
-
-define strings for each dydt for: 1. surface, 2. sub-surface, 3. bulk, 4. core
-
-'''
 
 import numpy as np
 import os
