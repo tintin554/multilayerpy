@@ -55,13 +55,14 @@ class Simulate():
         self.surf_concs = {}
         self.bulk_concs = {}
         self.static_surf_concs = {}
+        self.optimisation_result = None
         
-    def calc_Vt_At_layer_thick(self,model_output):
+    def calc_Vt_At_layer_thick(self):
         '''
         calculate V and A of each layer at each timepoint in the simulation
         '''
         
-        output = model_output.y.T
+        output = self.model_output.y.T
         n_comps = len(self.model.model_components)
         n_layers = self.run_params['n_layers']
         
@@ -80,42 +81,48 @@ class Simulate():
         #print('shape Vtot= ',Vtot.shape)
         # area (spherical geom)
         sum_V = np.sum(Vtot,axis=1)
-        cumsum_V = np.cumsum(Vtot,axis=1)
+        cumsum_V = np.cumsum(np.flip(Vtot,axis=1),axis=1)
         
         layer_thick = []
+        if self.model.geometry == 'spherical':
+            # calc layer thick
+            for ind, val in enumerate(cumsum_V):
+                t_slice_v_vals = np.flip(cumsum_V[ind,:])
+                # if ind == 0:
+                    #print('t_slice_v_vals ',t_slice_v_vals)
+                thick_vals_t = []
+                for i, v in enumerate(t_slice_v_vals):
+                    if i != len(t_slice_v_vals) - 1:
+                        v_next_shell = t_slice_v_vals[i+1]
+                    else: 
+                        v_next_shell = 0.0
+                    r_shell = np.cbrt((3*v)/(4*np.pi))
+                    r_next_shell = np.cbrt((3*v_next_shell)/(4*np.pi))
+                    
+                    thick = r_shell - r_next_shell
+                    if i == len(t_slice_v_vals) - 1:
+                        thick = r_shell
+                    thick_vals_t.append(thick)
+                if ind == 0:
+                    layer_thick = np.array(thick_vals_t)
+                else:
+                    layer_thick = np.vstack((layer_thick,thick_vals_t))
+            
         
-        # calc layer thick
-        for ind, val in enumerate(cumsum_V):
-            t_slice_v_vals = np.flip(cumsum_V[ind,:])
-            # if ind == 0:
-            #     print('t_slice_v_vals ',t_slice_v_vals)
-            thick_vals_t = []
-            for i, v in enumerate(t_slice_v_vals):
-                if i != len(t_slice_v_vals) - 1:
-                    v_next_shell = t_slice_v_vals[i+1]
-                else: 
-                    v_next_shell = 0.0
-                r_shell = np.cbrt((3*v/4*np.pi))
-                r_next_shell = np.cbrt((3*v_next_shell/4*np.pi))
-                
-                thick = r_shell - r_next_shell
-                thick_vals_t.append(thick)
-            if ind == 0:
-                layer_thick = np.array(thick_vals_t)
-            else:
-                layer_thick = np.vstack((layer_thick,thick_vals_t))
+            #print('shape cumsum_V= ',cumsum_V.shape)
+            r_pos = np.cbrt((3.0* np.flip(cumsum_V))/(4*np.pi))
+            A = 4 * np.pi * r_pos**2
         
-        
-        print('shape cumsum_V= ',cumsum_V.shape)
-        r_pos = np.cbrt((3.0* np.flip(cumsum_V))/(4*np.pi))
-        A = 4 * np.pi * r_pos**2
-        
-        
+        elif self.model.geometry == 'film':
+            square_length = 1e-4 # length of square cross-section of the film (1 µm), arbitrary
+            A = square_length ** 2 # same for all layers
+            layer_thick = Vtot / A
+            
         # layer thickness
         #layer_thick = r_pos[:,:-1] - r_pos[:,1:]
-        print('shape layer thick ', layer_thick.shape)
-        print('shape rpos ', r_pos.shape)
-        layer_thick = np.column_stack((layer_thick,r_pos[:,-1]))
+        #print('shape layer thick ', layer_thick.shape)
+        #print('shape rpos ', r_pos.shape)
+        #layer_thick = np.column_stack((layer_thick,r_pos[:,-1]))
         
         
         #print('shape sumV= ',sum_V.shape,'shape A= ',A.shape, 'shape layer_thick= ',layer_thick.shape)
@@ -146,6 +153,7 @@ class Simulate():
         self.run_params['ode_integrate_method'] = ode_integrate_method
         self.run_params['rtol'] = rtol
         self.run_params['atol'] = atol
+        self.run_params['geometry'] = self.model.reaction_scheme.model_type.geometry
             
         
         assert len(time_span) == 2, "time_span needs to be a sequence of 2 numbers"
@@ -165,6 +173,8 @@ class Simulate():
                                                  (min(time_span),max(time_span)),
                                                  Y0,t_eval=tspan,method=ode_integrate_method,
                                                  rtol=rtol,atol=atol,dense_output=dense_output)
+        self.model_output = model_output
+        
         end_int = time.time()
                 
         #print(f'Model run took {end_int-start_int:.2f} s')
@@ -198,7 +208,7 @@ class Simulate():
             
             # calculate V_t and A_t at each time point
             
-            V_t, A_t, layer_thick = self.calc_Vt_At_layer_thick(model_output)
+            V_t, A_t, layer_thick = self.calc_Vt_At_layer_thick()
             
             
             # collect surface concentrations
@@ -236,7 +246,7 @@ class Simulate():
             self.surf_concs = surf_concs
             self.static_surf_concs = static_surf_concs
             self.bulk_concs = bulk_concs
-            self.model_output = model_output
+            
             
         
         return model_output
@@ -246,11 +256,11 @@ class Simulate():
             
         
     def plot(self,norm=False,data=None):
-        # ACCOUNT FOR KM-GAP
+        
         mod_type = self.model.model_type.lower()
         # km-gap: V, A and layer thickness over time
         if  mod_type == 'km-gap':
-            Vt, At, thick_t = self.calc_Vt_At_layer_thick(self.model_output)
+            Vt, At, thick_t = self.calc_Vt_At_layer_thick()
         
         model_output = self.model_output.y.T 
         
@@ -424,7 +434,7 @@ def initial_concentrations(model_type,bulk_conc_dict,surf_conc_dict,n_layers,
     return Y0
         
 
-def make_layers(model_type,n_layers,bulk_radius,geometry,n_components=None,y0=None,parameter_dict=None):
+def make_layers(model_type,n_layers,bulk_radius,n_components=None,y0=None,parameter_dict=None):
     '''
     defines the volume, surface area and layer thickness for each model layer
     
@@ -451,16 +461,42 @@ def make_layers(model_type,n_layers,bulk_radius,geometry,n_components=None,y0=No
         
     delta = bulk_radius/n_layers
     
+    geometry = model_type.geometry
+    
     if geometry == 'spherical':
     
         V = np.zeros(n_layers)
         A = np.zeros(n_layers)
+        
+        cumulative_V = []
         for i in np.arange(n_layers):
-            layerno = i + 1
-            V[i] = (4/3) * np.pi * ((bulk_radius-(layerno-1)*delta)**3 - (bulk_radius-layerno*delta)**3)    
-            A[i] = 4 * np.pi * (bulk_radius-(layerno-1)*delta)**2
+            
+            # V[i] = (4/3) * np.pi * ((bulk_radius-(layerno-1)*delta)**3 - (bulk_radius-layerno*delta)**3)    
+            # A[i] = 4 * np.pi * (bulk_radius-(layerno-1)*delta)**2
+            
+            # working from core shell outwards
+            v = (4/3) * np.pi * (delta*(i+1))**3
+            cumulative_V.append(v)
+        
+        # now add V of each layer to V array
+        for i, v in enumerate(cumulative_V):
+            layerno = n_layers - i - 1 
+            if i == 0:
+                V[layerno] = v 
+            else:
+                V[layerno] = v - cumulative_V[i-1]
+            
         
         layer_thick = np.ones(n_layers) * delta
+        
+        # calculate A
+        r = 0.0
+        for i, thick in enumerate(layer_thick):
+            layerno = n_layers - i - 1
+            r += thick
+            surf_area = 4 * np.pi * r**2
+            A[layerno] = surf_area
+            
         
     elif geometry == 'film':
         

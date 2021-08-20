@@ -50,7 +50,8 @@ def STLR(X_surf,Y_surf,X_bulk,Y_bulk,k_SLR,k_BR):
 
 
 
-def saturation_ratio(X_b,X_s,X_gs,alpha_X_0,w_X,H_cc,Td_X,delta_X,bulk=True):
+def saturation_ratio(X_b,X_s,X_gs,H_cp,T,alpha_s_0_X=None,w_X=None,
+                    Td_X=None,delta_X=None,bulk=True):
     '''
     Calculate either the bulk or surface saturation ratio
     
@@ -73,7 +74,9 @@ def saturation_ratio(X_b,X_s,X_gs,alpha_X_0,w_X,H_cc,Td_X,delta_X,bulk=True):
     kd = 1 / Td,X
     
     '''
+    R = 82.0578
     if bulk:
+        H_cc = H_cp * R * T
         X_b1 = X_b[:,0]
         X_b_sat = H_cc * X_gs
         
@@ -84,7 +87,7 @@ def saturation_ratio(X_b,X_s,X_gs,alpha_X_0,w_X,H_cc,Td_X,delta_X,bulk=True):
     
     else:
         surf_cover = delta_X * X_s
-        alpha_s_X = alpha_X_0 * (1-surf_cover)
+        alpha_s_X = alpha_s_0_X * (1-surf_cover)
         ka = (alpha_s_X * w_X / 4) * X_gs
         kd = 1.0 / Td_X
         
@@ -93,7 +96,56 @@ def saturation_ratio(X_b,X_s,X_gs,alpha_X_0,w_X,H_cc,Td_X,delta_X,bulk=True):
         return SSR
 
 
-
+def mixing_parameter(Db_X,Db_Y,k_BR,X_b,Y_b,rp,V_k):
+    '''
+    Calculate the mixing parameter for a bulk diffusion-limited system BMP
+    
+    reacto-diffusive length (for X and Y):
+    
+    l_rd = sqrt(Db / k_BR * [X or Y]eff)
+    
+    [X]eff = (SUM L_k * V_k * [X]bk) / (SUM L_k * V_k)
+    (same eq for [Y]eff)
+    
+    BMP_X = l_rd_X / (l_rd_X + rp/e)
+    (rp = particle radius; same eq for BMP_Y)
+    
+    BMP_XY = (BMP_X + BMP_Y) / 2
+    
+    returns BMP_XY at each time point
+    '''
+    
+    # INCLUDE Db EVOLUTION FOR EACH PARAM to get avg Db
+    
+    # calc loss rate for each layer
+    
+    L_bk = k_BR * (X_b * Y_b)
+    
+    # calc numerator for [X] and [Y] eff calculation
+    
+    Lk_Vk = L_bk * V_k # (allows multiplication over cols) CHECK
+    
+    l_rd_X_num = np.sum(Lk_Vk * X_b, axis=1)
+    l_rd_Y_num = np.sum(Lk_Vk * Y_b, axis=1)
+    
+    X_eff = l_rd_X_num / np.sum(Lk_Vk, axis=1)
+    Y_eff = l_rd_Y_num / np.sum(Lk_Vk, axis=1)
+        
+    # calc l_rd (using Dx and Dy in Y - may want to change this an an avg D?)
+    
+   
+    
+    l_rd_X = np.sqrt(Db_X / (k_BR * Y_eff))
+    l_rd_Y = np.sqrt(Db_Y/ (k_BR * X_eff))
+    
+    # calc BMP X and BMP Y
+    
+    BMP_X = l_rd_X / (l_rd_X + rp/np.e)
+    BMP_Y = l_rd_Y / (l_rd_Y + rp/np.e)
+    
+    BMP_XY = (BMP_X + BMP_Y) / 2
+    
+    return BMP_XY
 
 
 

@@ -29,12 +29,16 @@ class ModelType:
     A class which will contain information about the model type
     '''
     
-    def __init__(self, model_type):
+    def __init__(self, model_type, geometry):
         
         # make sure model_type is a string
         assert type(model_type) == str
         
+        # geometry needs to be in list of accepted geometries
+        assert geometry in ['spherical','film']
+        
         self.model_type = model_type
+        self.geometry = geometry
         
 
 class ReactionScheme:
@@ -483,9 +487,15 @@ class DiffusionRegime():
                 
             elif self.model_type.model_type.lower() == 'km-gap':
                 kss_s_string = f'kss_s_{i+1} = Db_{i+1} / delta_{i+1}**2'
+                # turn off movement between ss an s for non-volatile components
+                if self.model_components_dict[f'{i+1}'].gas == False:
+                    kss_s_string = f'kss_s_{i+1} = 0.0 '
                 kss_s_string_list.append(kss_s_string)
                 
                 ks_ss_string = f'ks_ss_{i+1} = kss_s_{i+1} * ((kd_{i+1} * Zss_eq_{i+1}) / (ka_{i+1} * Zg_eq_{i+1}))'
+                # turn off movement between ss an s for non-volatile components
+                if self.model_components_dict[f'{i+1}'].gas == False:
+                    ks_ss_string = f'ks_ss_{i+1} = 0.0'
                 ks_ss_string_list.append(ks_ss_string)
                 
                 kbss_string = f'kbss_{i+1} = (2 * Db_{i+1}) / (delta_{i+1} + layer_thick[0])'
@@ -550,8 +560,7 @@ class ModelBuilder():
     of model components and a diffusion regime
     '''
     
-    def __init__(self,reaction_scheme,model_components_dict,diffusion_regime,
-                 model_type='KM_SUB',geometry='spherical'):
+    def __init__(self,reaction_scheme,model_components_dict,diffusion_regime):
        '''
        XXX
        '''
@@ -562,7 +571,7 @@ class ModelBuilder():
        
        self.diffusion_regime = diffusion_regime # error if not dict
        
-       self.geometry = geometry
+       self.geometry = reaction_scheme.model_type.geometry
        
        self.model_type = reaction_scheme.model_type.model_type # error if not in accepted types
        
@@ -656,13 +665,13 @@ class ModelBuilder():
                 master_string_list.append(Vtot_comp_str)
             
             # now calculate total V, A and layer thick
-            master_string_list.append('\n\n    # calc total V, A, layer thick')
+            master_string_list.append('\n\n    # calc total V, A, layer thick\n')
             Vtot_str = '\n    Vtot = '
             for vtot in comp_V_list:
                 Vtot_str += '+ ' + vtot + ' '
             
-            sum_V_str = '\n    sum_V = np.cumsum(Vtot)'
-            r_pos_str = '\n    r_pos = np.cbrt((3.0/4*np.pi) * np.flip(sum_V))' # different for planar
+            sum_V_str = '\n    sum_V = np.cumsum(np.flip(Vtot))'
+            r_pos_str = '\n    r_pos = np.cbrt((3.0* np.flip(sum_V))/(4*np.pi))' # different for planar
             A_str = '\n    A = 4 * np.pi * r_pos**2'
             
             layer_thick_str = '\n    layer_thick = r_pos[:-1] - r_pos[1:]'
@@ -887,21 +896,26 @@ class ModelBuilder():
             master_string_list.append(four_space+s+'\n')
             
         master_string_list.append('\n\n    # bulk diffusion\n')
+        master_string_list.append('\n')
         #Db
         for s in diff_regime.Db_strings:
             master_string_list.append(four_space+s+'\n')
         # kbb
         for s in diff_regime.kbb_strings:
             master_string_list.append(four_space+s+'\n')
-            
+        
+        master_string_list.append('\n\n    # sorption-static surface layer\n')
+        master_string_list.append('\n')
         # kss_s (km-gap)
         for s in diff_regime.kss_s_strings:
             master_string_list.append(four_space+s+'\n')
-            
+        
         # ks_ss (km-gap)
         for s in diff_regime.ks_ss_strings:
             master_string_list.append(four_space+s+'\n')
-            
+        
+        master_string_list.append('\n\n    # mass fluxes\n')
+        master_string_list.append('\n')
         # now add mass fluxes for each component
         for comp in mod_comps.values():
             # loop through mass transport strings (Jbb, Jssb etc.)
