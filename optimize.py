@@ -130,33 +130,49 @@ class Optimizer():
             
             cost_val = self.cost_func(norm_number_molecules)
             
+            
             #print(cost_val)
             return cost_val
         
         if method == 'differential_evolution':
-        
+            print('Optimising using differential_evolution algorithm...')
             result = differential_evolution(minimize_me,param_bounds,
                                         (varying_param_keys,sim,component_no),
                                         disp=True,workers=n_workers)
         elif method == 'least_squares':
             #print(varying_params)
+            print('Optimising using least_squares Nelder-Mead algorithm...')
             result = minimize(minimize_me,varying_params,args=(varying_param_keys,sim,component_no),
                           method='Nelder-Mead',bounds=param_bounds,options={'disp':True, 'return_all':True})
             
+        # collect results into a result dict for printing
+        res_dict = {}
+        for i in range(len(varying_param_keys)):
+            key = varying_param_keys[i]
+            res_dict[key] = result.x[i]
+            
+        
         # print out results
         
         print('optimised params:')
-        print(result.x)
+        print(res_dict)
         print('Success=:',result.success,',termination message:',result.message)
         print('number of iters:',result.nit)
         print('final cost function value = ')
         print(result.fun)
         
-       
+        # run the simulation once more to update the Simulate object with
+        # optimised parameters 
+        sim.run(sim.run_params['n_layers'],sim.run_params['rp'],
+                sim.run_params['time_span'],sim.run_params['n_time'],
+                sim.run_params['V'],sim.run_params['A'],
+                sim.run_params['layer_thick'],Y0=sim.run_params['Y0'])
+        
+        sim.optimisation_result = res_dict
         
         return result
         
-
+    
 
 
 
