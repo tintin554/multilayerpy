@@ -97,7 +97,7 @@ class Optimizer():
             layer_thick = sim.run_params['layer_thick']
             Y0 = sim.run_params['Y0']
             
-            # change the simulate object parameters 
+            # update the simulate object parameters 
             for ind, param in enumerate(varying_param_keys):
                 sim.parameters[param].value = varying_param_vals[ind]
             
@@ -116,32 +116,88 @@ class Optimizer():
             model_output = integrate.solve_ivp(lambda t, y:model_import.dydt(t,y,sim.parameters,V,A,n_layers,layer_thick),
                                                      (min(time_span),max(time_span)),
                                                      Y0,t_eval=t_eval,method=ode_integrate_method)
-                
-            # collect surface concentrations
-            surf_conc_inds = [0]
-            for i in range(1,len(self.model.model_components)):
-                ind = i * n_layers + i
-                surf_conc_inds.append(ind)
-                
-            surf_concs = {}
-            # append to surf concs dict for each component
-            for ind, i in enumerate(surf_conc_inds):
-                surf_concs[f'{ind+1}'] = model_output.y.T[:,i] 
-                
-            # bulk concentrations
-            bulk_concs = {}
-            for i in range(len(self.model.model_components)):
-                conc_output = model_output.y.T[:,i*n_layers+1+i:(i+1)*n_layers+i+1]
-                
-                bulk_concs[f'{i+1}'] = conc_output   
-                
-            # get total no of molecules of component of interest 
             
-            bulk_num = bulk_concs[f'{component_no}'] * V
-            surf_num = surf_concs[f'{component_no}'] * A[0]
+            sim.model_output = model_output
+            
+            if sim.model.model_type.lower() == 'km-sub':
+                # collect surface concentrations
+                surf_conc_inds = [0]
+                for i in range(1,len(self.model.model_components)):
+                    ind = i * n_layers + i
+                    surf_conc_inds.append(ind)
+                    
+                surf_concs = {}
+                # append to surf concs dict for each component
+                for ind, i in enumerate(surf_conc_inds):
+                    surf_concs[f'{ind+1}'] = model_output.y.T[:,i] 
+                    
+                # bulk concentrations
+                bulk_concs = {}
+                for i in range(len(self.model.model_components)):
+                    conc_output = model_output.y.T[:,i*n_layers+1+i:(i+1)*n_layers+i+1]
+                    
+                    bulk_concs[f'{i+1}'] = conc_output   
+                    
+                # get total no of molecules of component of interest 
+                    
+                bulk_num = bulk_concs[f'{component_no}'] * V
+                surf_num = surf_concs[f'{component_no}'] * A[0]
+                static_surf_num = np.zeros(len(surf_concs[f'{component_no}'])) # only applicable to km-gap (surf is static surf and sorption layer in km-sub)
+                
+                
+            
+            elif sim.model.model_type.lower() == 'km-gap':
+                # REMEMBER division by A or V to get molec. cm-2 or cm-3 (km-gap)
+                
+                # calculate V_t and A_t at each time point
+    
+                V_t, A_t, layer_thick = sim.calc_Vt_At_layer_thick()
+                
+                # collect surface concentrations
+                surf_conc_inds = []
+                for i in range(len(self.model.model_components)):
+                    cn = i + 1
+                    ind = (cn-1) * n_layers + 2 * (cn-1)
+                    surf_conc_inds.append(ind)
+                    
+                surf_concs = {}
+                # append to surf concs dict for each component
+                for ind, i in enumerate(surf_conc_inds):
+                    surf_concs[f'{ind+1}'] = model_output.y.T[:,i] / A_t[:,0]
+                    
+                # collect static surface concentrations
+                static_surf_conc_inds = []
+                for i in range(len(self.model.model_components)):
+                    cn = i + 1
+                    ind = (cn-1)*n_layers+2*(cn-1)+1
+                    static_surf_conc_inds.append(ind)
+                    
+                static_surf_concs = {}
+                # append to surf concs dict for each component
+                for ind, i in enumerate(surf_conc_inds):
+                    static_surf_concs[f'{ind+1}'] = model_output.y.T[:,i] / A_t[:,0]
+                    
+                # get bulk concentrations
+                bulk_concs = {}
+                for i in range(len(self.model.model_components)):
+                    cn = i + 1
+                    conc_output = model_output.y.T[:,(cn-1)*n_layers+2*(cn-1)+2:cn*n_layers+cn+(cn-1)+1] / V_t
+                    
+                    bulk_concs[f'{i+1}'] = conc_output
+                    
+                self.surf_concs = surf_concs
+                self.static_surf_concs = static_surf_concs
+                self.bulk_concs = bulk_concs
+            
+            
+                # get total no of molecules of component of interest 
+                
+                bulk_num = bulk_concs[f'{component_no}'] * V_t
+                surf_num = surf_concs[f'{component_no}'] * A_t[:,0]
+                static_surf_num = static_surf_concs[f'{component_no}'] * A_t[:,0]
             
             bulk_total_num = np.sum(bulk_num,axis=1)
-            total_number_molecules = bulk_total_num + surf_num
+            total_number_molecules = bulk_total_num + surf_num + static_surf_num
             
             # the data is normalised, so model output will be normalised 
             norm_number_molecules = total_number_molecules / total_number_molecules[0]
@@ -155,13 +211,13 @@ class Optimizer():
             return cost_val
         
         if method == 'differential_evolution':
-            print('Optimising using differential_evolution algorithm...')
+            print('\nOptimising using differential_evolution algorithm...\n')
             result = differential_evolution(minimize_me,param_bounds,
                                         (varying_param_keys,sim,component_no),
                                         disp=True,workers=n_workers)
         elif method == 'least_squares':
             #print(varying_params)
-            print('Optimising using least_squares Nelder-Mead algorithm...')
+            print('\nOptimising using least_squares Nelder-Mead algorithm...\n')
             result = minimize(minimize_me,varying_params,args=(varying_param_keys,sim,component_no),
                           method='Nelder-Mead',bounds=param_bounds,options={'disp':True, 'return_all':True})
             

@@ -51,7 +51,7 @@ class ReactionScheme:
     
     def __init__(self,model_type_object,name='rxn_scheme',
                  reaction_tuple_list=None,products_of_reactions_list=[],
-                 component_names=[],reactant_stoich=None, product_stoich=None):
+                 component_names=[],reactant_stoich=[], product_stoich=[]):
         
         # model type
         self.model_type = model_type_object
@@ -70,9 +70,9 @@ class ReactionScheme:
         # tuple list of which components are produced from each reaction
         self.reaction_products = products_of_reactions_list # * error if None and len != n_components
         
-        self.reactant_stoich = []
+        self.reactant_stoich = reactant_stoich
         
-        self.product_stoich = []
+        self.product_stoich = product_stoich
         
         # list of component names, defaults to empty list if nothing supplied
         self.comp_names = component_names # *error if not list of strings with len = n_components
@@ -1071,23 +1071,52 @@ class ModelBuilder():
                                 
                         r1, r2 = reactants
                         
+                        # get stoich coefficient index 
+                        stoich_index = None
+                        if type(product_stoich) != type(None):
+                            for ind, prod_number in enumerate(products):
+                                if prod_number == comp.component_number:
+                                    stoich_index = ind
                         
-                        # if no stoich given, assume a coefficient of 1
+                        if stoich_index != None:
+                            stoich_coefficient = product_stoich[stoich_index]
+                        
+                        # if no stoich given, assume a coefficient of 1 for reactants
                         if reactant_stoich == None:
                         
                         # INCLUDE STOICHIOMETRY (MULTIPLY BY STOICH COEFF)
                             if mod_type.lower() == 'km-sub':
-                                comp.surf_string += f'+ y[{r1-1}*Lorg+{r1-1}] * y[{r2-1}*Lorg+{r2-1}] * k'
-                                comp.firstbulk_string += f'+ y[{r1-1}*Lorg+{r1}] * y[{r2-1}*Lorg+{r2}] * k'
-                                comp.bulk_string += f'+ y[{r1-1}*Lorg+{r1}+i] * y[{r2-1}*Lorg+{r2}+i] * k'
-                                comp.core_string += f'+ y[{r1}*Lorg+{r1-1}] * y[{r2}*Lorg+{r2-1}] * k'
+                                if stoich_index == None:
+                                    comp.surf_string += f'+ y[{r1-1}*Lorg+{r1-1}] * y[{r2-1}*Lorg+{r2-1}] * k'
+                                    comp.firstbulk_string += f'+ y[{r1-1}*Lorg+{r1}] * y[{r2-1}*Lorg+{r2}] * k'
+                                    comp.bulk_string += f'+ y[{r1-1}*Lorg+{r1}+i] * y[{r2-1}*Lorg+{r2}+i] * k'
+                                    comp.core_string += f'+ y[{r1}*Lorg+{r1-1}] * y[{r2}*Lorg+{r2-1}] * k'
+                                    
+                                # add product stoichiometry coefficient if supplied
+                                else:
+                                    comp.surf_string += f'+ {stoich_coefficient} * y[{r1-1}*Lorg+{r1-1}] * y[{r2-1}*Lorg+{r2-1}] * k'
+                                    comp.firstbulk_string += f'+ {stoich_coefficient} * y[{r1-1}*Lorg+{r1}] * y[{r2-1}*Lorg+{r2}] * k'
+                                    comp.bulk_string += f'+ {stoich_coefficient} * y[{r1-1}*Lorg+{r1}+i] * y[{r2-1}*Lorg+{r2}+i] * k'
+                                    comp.core_string += f'+ {stoich_coefficient} * y[{r1}*Lorg+{r1-1}] * y[{r2}*Lorg+{r2-1}] * k'
+                                
+                                    
                                 
                             elif mod_type.lower() == 'km-gap':
-                                comp.surf_string += f'+ A[0] * (y[{r1-1}*Lorg+2*{r1-1}]/A[0]) * (y[{r2-1}*Lorg+2*{r2-1}]/A[0]) * k'
-                                comp.static_surf_string += f'+ A[0] * (y[{r1-1}*Lorg+2*{r1-1}+1]/A[0]) * (y[{r2-1}*Lorg+2*{r2-1}+1]/A[0]) * k'
-                                comp.firstbulk_string += f'+ V[0] * (y[{r1-1}*Lorg+2*{r1-1}+2]/V[0]) * (y[{r2-1}*Lorg+2*{r2-1}+2]/V[0]) * k'
-                                comp.bulk_string += f'+ V[i] * (y[{r1-1}*Lorg+{r1}+i+{r1}]/V[i]) * (y[{r2-1}*Lorg+{r2}+i+{r2}]/V[i]) * k'
-                                comp.core_string += f'+ V[-1] *  (y[{r1}*Lorg+{r1}+{r1-1}]/V[-1]) * (y[{r2}*Lorg+{r2}+{r2-1}]/V[-1]) * k'
+                                if stoich_index == None:
+                                    comp.surf_string += f'+ A[0] * (y[{r1-1}*Lorg+2*{r1-1}]/A[0]) * (y[{r2-1}*Lorg+2*{r2-1}]/A[0]) * k'
+                                    comp.static_surf_string += f'+ A[0] * (y[{r1-1}*Lorg+2*{r1-1}+1]/A[0]) * (y[{r2-1}*Lorg+2*{r2-1}+1]/A[0]) * k'
+                                    comp.firstbulk_string += f'+ V[0] * (y[{r1-1}*Lorg+2*{r1-1}+2]/V[0]) * (y[{r2-1}*Lorg+2*{r2-1}+2]/V[0]) * k'
+                                    comp.bulk_string += f'+ V[i] * (y[{r1-1}*Lorg+{r1}+i+{r1}]/V[i]) * (y[{r2-1}*Lorg+{r2}+i+{r2}]/V[i]) * k'
+                                    comp.core_string += f'+ V[-1] *  (y[{r1}*Lorg+{r1}+{r1-1}]/V[-1]) * (y[{r2}*Lorg+{r2}+{r2-1}]/V[-1]) * k'
+                                    
+                                # add product stoichiometry coefficient if supplied
+                                else:
+                                    comp.surf_string += f'+ {stoich_coefficient} * A[0] * (y[{r1-1}*Lorg+2*{r1-1}]/A[0]) * (y[{r2-1}*Lorg+2*{r2-1}]/A[0]) * k'
+                                    comp.static_surf_string += f'+ {stoich_coefficient} * A[0] * (y[{r1-1}*Lorg+2*{r1-1}+1]/A[0]) * (y[{r2-1}*Lorg+2*{r2-1}+1]/A[0]) * k'
+                                    comp.firstbulk_string += f'+ {stoich_coefficient} * V[0] * (y[{r1-1}*Lorg+2*{r1-1}+2]/V[0]) * (y[{r2-1}*Lorg+2*{r2-1}+2]/V[0]) * k'
+                                    comp.bulk_string += f'+ {stoich_coefficient} * V[i] * (y[{r1-1}*Lorg+{r1}+i+{r1}]/V[i]) * (y[{r2-1}*Lorg+{r2}+i+{r2}]/V[i]) * k'
+                                    comp.core_string += f'+ {stoich_coefficient} * V[-1] *  (y[{r1}*Lorg+{r1}+{r1-1}]/V[-1]) * (y[{r2}*Lorg+{r2}+{r2-1}]/V[-1]) * k'
+                                    
                                 
                     
                             # sorted array of cn and rn to define correct reaction constant (k)
@@ -1118,18 +1147,36 @@ class ModelBuilder():
                             react_1_stoich, react_2_stoich = reactant_stoich
                             
                             if mod_type.lower() == 'km-sub':
-                                comp.surf_string += f'+ {react_1_stoich} * y[{r1-1}*Lorg+{r1-1}] * {react_2_stoich} * y[{r2-1}*Lorg+{r2-1}] * k'
-                                comp.firstbulk_string += f'+ {react_1_stoich} * y[{r1-1}*Lorg+{r1}] * {react_2_stoich} * y[{r2-1}*Lorg+{r2}] * k'
-                                comp.bulk_string += f'+ {react_1_stoich} * y[{r1-1}*Lorg+{r1}+i] * {react_2_stoich} * y[{r2-1}*Lorg+{r2}+i] * k'
-                                comp.core_string += f'+ {react_1_stoich} * y[{r1}*Lorg+{r1-1}] * {react_2_stoich} * y[{r2}*Lorg+{r2-1}] * k'
+                                if stoich_index == None:
+                                    comp.surf_string += f'+ {react_1_stoich} * y[{r1-1}*Lorg+{r1-1}] * {react_2_stoich} * y[{r2-1}*Lorg+{r2-1}] * k'
+                                    comp.firstbulk_string += f'+ {react_1_stoich} * y[{r1-1}*Lorg+{r1}] * {react_2_stoich} * y[{r2-1}*Lorg+{r2}] * k'
+                                    comp.bulk_string += f'+ {react_1_stoich} * y[{r1-1}*Lorg+{r1}+i] * {react_2_stoich} * y[{r2-1}*Lorg+{r2}+i] * k'
+                                    comp.core_string += f'+ {react_1_stoich} * y[{r1}*Lorg+{r1-1}] * {react_2_stoich} * y[{r2}*Lorg+{r2-1}] * k'
+                                    
+                                # add product stoichiometry coefficient if supplied
+                                else:
+                                    comp.surf_string += f'+ {stoich_coefficient} * {react_1_stoich} * y[{r1-1}*Lorg+{r1-1}] * {react_2_stoich} * y[{r2-1}*Lorg+{r2-1}] * k'
+                                    comp.firstbulk_string += f'+ {stoich_coefficient} * {react_1_stoich} * y[{r1-1}*Lorg+{r1}] * {react_2_stoich} * y[{r2-1}*Lorg+{r2}] * k'
+                                    comp.bulk_string += f'+ {stoich_coefficient} * {react_1_stoich} * y[{r1-1}*Lorg+{r1}+i] * {react_2_stoich} * y[{r2-1}*Lorg+{r2}+i] * k'
+                                    comp.core_string += f'+ {stoich_coefficient} * {react_1_stoich} * y[{r1}*Lorg+{r1-1}] * {react_2_stoich} * y[{r2}*Lorg+{r2-1}] * k'
+                                    
                                 
                             elif mod_type.lower() == 'km-gap':
-                                comp.surf_string += f'- A[0] * {react_1_stoich} * (y[{r1-1}*Lorg+2*{r1-1}]/A[0]) * {react_2_stoich} * (y[{r2-1}*Lorg+2*{r2-1}]/A[0]) * k'
-                                comp.static_surf_string += f'+ A[0] * {react_1_stoich} * (y[{r1-1}*Lorg+2*{r1-1}+1]/A[0]) * {react_2_stoich} * (y[{r2-1}*Lorg+2*{r2-1}+1]/A[0]) * k'
-                                comp.firstbulk_string += f'+ V[0] * {react_1_stoich} * (y[{r1-1}*Lorg+2*{r1-1}+2]/V[0]) * {react_2_stoich} * (y[{r2-1}*Lorg+2*{r2-1}+2]/V[0]) * k'
-                                comp.bulk_string += f'+ V[i] * {react_1_stoich} * (y[{r1-1}*Lorg+{r1}+i+{r1}]/V[i]) * {react_2_stoich} * (y[{r2-1}*Lorg+{r2}+i+{r2}]/V[i]) * k'
-                                comp.core_string += f'+ V[-1] * {react_1_stoich} * (y[{r1}*Lorg+{r1}+{r1-1}]/V[-1]) * {react_2_stoich} * (y[{r2}*Lorg+{r2}+{r2-1}]/V[-1]) * k'
-                                
+                                if stoich_index == None:
+                                    comp.surf_string += f'+ A[0] * {react_1_stoich} * (y[{r1-1}*Lorg+2*{r1-1}]/A[0]) * {react_2_stoich} * (y[{r2-1}*Lorg+2*{r2-1}]/A[0]) * k'
+                                    comp.static_surf_string += f'+ A[0] * {react_1_stoich} * (y[{r1-1}*Lorg+2*{r1-1}+1]/A[0]) * {react_2_stoich} * (y[{r2-1}*Lorg+2*{r2-1}+1]/A[0]) * k'
+                                    comp.firstbulk_string += f'+ V[0] * {react_1_stoich} * (y[{r1-1}*Lorg+2*{r1-1}+2]/V[0]) * {react_2_stoich} * (y[{r2-1}*Lorg+2*{r2-1}+2]/V[0]) * k'
+                                    comp.bulk_string += f'+ V[i] * {react_1_stoich} * (y[{r1-1}*Lorg+{r1}+i+{r1}]/V[i]) * {react_2_stoich} * (y[{r2-1}*Lorg+{r2}+i+{r2}]/V[i]) * k'
+                                    comp.core_string += f'+ V[-1] * {react_1_stoich} * (y[{r1}*Lorg+{r1}+{r1-1}]/V[-1]) * {react_2_stoich} * (y[{r2}*Lorg+{r2}+{r2-1}]/V[-1]) * k'
+                                    
+                                # add product stoichiometry coefficient if supplied
+                                else:
+                                    comp.surf_string += f'+ {stoich_coefficient} * A[0] * {react_1_stoich} * (y[{r1-1}*Lorg+2*{r1-1}]/A[0]) * {react_2_stoich} * (y[{r2-1}*Lorg+2*{r2-1}]/A[0]) * k'
+                                    comp.static_surf_string += f'+ {stoich_coefficient} * A[0] * {react_1_stoich} * (y[{r1-1}*Lorg+2*{r1-1}+1]/A[0]) * {react_2_stoich} * (y[{r2-1}*Lorg+2*{r2-1}+1]/A[0]) * k'
+                                    comp.firstbulk_string += f'+ {stoich_coefficient} * V[0] * {react_1_stoich} * (y[{r1-1}*Lorg+2*{r1-1}+2]/V[0]) * {react_2_stoich} * (y[{r2-1}*Lorg+2*{r2-1}+2]/V[0]) * k'
+                                    comp.bulk_string += f'+ {stoich_coefficient} * V[i] * {react_1_stoich} * (y[{r1-1}*Lorg+{r1}+i+{r1}]/V[i]) * {react_2_stoich} * (y[{r2-1}*Lorg+{r2}+i+{r2}]/V[i]) * k'
+                                    comp.core_string += f'+ {stoich_coefficient} * V[-1] * {react_1_stoich} * (y[{r1}*Lorg+{r1}+{r1-1}]/V[-1]) * {react_2_stoich} * (y[{r2}*Lorg+{r2}+{r2-1}]/V[-1]) * k'
+                                    
             
                             # sorted array of cn and rn to define correct reaction constant (k)
                             sorted_r1_r2 = np.array([r1,r2]).sort()

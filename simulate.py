@@ -34,6 +34,7 @@ import time
 import scipy
 from scipy import integrate
 import matplotlib.pyplot as plt
+from kmsub_model_build import Parameter
 
 
 class Simulate():
@@ -73,6 +74,16 @@ class Simulate():
         self.bulk_concs = {}
         self.static_surf_concs = {}
         self.optimisation_result = None
+        
+        # convert parameter dictionary values to Parameter objects if they are not
+        # this will help with using the Optimizer
+        for par, value in self.parameters.items():
+            # if not Parameter object, an attribute error would be raised
+            try:
+                val = value.value
+            except AttributeError:
+                self.parameters[par] = Parameter(value)
+        
         
     def calc_Vt_At_layer_thick(self):
 
@@ -336,12 +347,14 @@ class Simulate():
             if mod_type == 'km-sub':
                 surf_no = self.surf_concs[f'{i+1}'] * self.run_params['A'][0]
                 bulk_no = self.bulk_concs[f'{i+1}'] * self.run_params['V']
+                stat_surf_no = np.zeros(len(surf_no))
             elif mod_type == 'km-gap':
                 surf_no = self.surf_concs[f'{i+1}'] * At[:,0]
                 bulk_no = self.bulk_concs[f'{i+1}'] * Vt
+                stat_surf_no = self.static_surf_concs[f'{i+1}'] * At[:,0]
                 
             tot_bulk_no = np.sum(bulk_no,axis=1)
-            total_no = surf_no + tot_bulk_no
+            total_no = surf_no + tot_bulk_no + stat_surf_no
             
             if norm:
                 plt.plot(self.model_output.t,total_no/max(total_no),label=comp_name)
@@ -398,9 +411,122 @@ class Simulate():
             plt.tight_layout()
             plt.show()
 
+    def xy_data_total_number(self,components='all'):
+        '''
+        Returns the x-y data from the model. 
+        Either for all components or selected component(s).
+        Components are in order of component number.
+        
+        if selected components desired, supply a list of integers. 
+        if one component, supply an int (component number)
+        '''
+        
+        A = self.run_params['A']
+        V = self.run_params['V']
+        
+        mod_type = self.model.model_type.lower()
+        # km-gap: V, A and layer thickness over time
+        if  mod_type == 'km-gap':
+            Vt, At, thick_t = self.calc_Vt_At_layer_thick()
+            
+        model_output = self.model_output.y.T 
+        
+        n_layers = self.run_params['n_layers']
+        n_comps = len(self.model.model_components)
+        mod_comps = self.model.model_components
+        
+        # xy data first column is time
+        xy_output = self.model_output.t
+        for i in range(n_comps):
+            # all components outputted
+            if components == 'all':
+                if mod_type == 'km-sub':
+                    surf_no = self.surf_concs[f'{i+1}'] * A[0]
+                    bulk_no = self.bulk_concs[f'{i+1}'] * V
+                    stat_surf_no = np.zeros(len(surf_no))
+                elif mod_type == 'km-gap':
+                    surf_no = self.surf_concs[f'{i+1}'] * At[:,0]
+                    stat_surf_no = self.static_surf_concs[f'{i+1}'] * At[:,0]
+                    bulk_no = self.bulk_concs[f'{i+1}'] * Vt
+                    
+                tot_bulk_no = np.sum(bulk_no,axis=1)
+                total_no = surf_no + tot_bulk_no + stat_surf_no
+                
+                xy_output = np.column_stack((xy_output,total_no))
+            
+            # selected components outputted
+            elif type(components) == type(list):
+                if i in components:
+                    if mod_type == 'km-sub':
+                        surf_no = self.surf_concs[f'{i+1}'] * A[0]
+                        bulk_no = self.bulk_concs[f'{i+1}'] * V
+                        stat_surf_no = np.zeros(len(surf_no))
+                    elif mod_type == 'km-gap':
+                        surf_no = self.surf_concs[f'{i+1}'] * At[:,0]
+                        stat_surf_no = self.static_surf_concs[f'{i+1}'] * At[:,0]
+                        bulk_no = self.bulk_concs[f'{i+1}'] * Vt
+                    
+                    tot_bulk_no = np.sum(bulk_no,axis=1)
+                    total_no = surf_no + tot_bulk_no + stat_surf_no
+                    
+                    xy_output = np.column_stack((xy_output,total_no))
+            
+            # one component outputted
+            elif type(components) == type(int):
+                if i == components:
+                    if mod_type == 'km-sub':
+                        surf_no = self.surf_concs[f'{i+1}'] * A[0]
+                        bulk_no = self.bulk_concs[f'{i+1}'] * V
+                        stat_surf_no = np.zeros(len(surf_no))
+                    elif mod_type == 'km-gap':
+                        surf_no = self.surf_concs[f'{i+1}'] * At[:,0]
+                        stat_surf_no = self.static_surf_concs[f'{i+1}'] * At[:,0]
+                        bulk_no = self.bulk_concs[f'{i+1}'] * Vt
+                    
+                    tot_bulk_no = np.sum(bulk_no,axis=1)
+                    total_no = surf_no + tot_bulk_no + stat_surf_no
+                    
+                    xy_output = np.column_stack((xy_output,total_no))
 
+        return xy_output
 
-
+    def save_params_csv(self,filename='model_parameters.csv'):
+        '''
+        Saves model parameters (name, value and bounds - if available) to a .csv file
+        '''
+        
+        params = self.parameters
+        
+        output_array = np.array(['Parameter_name','value','lower_bound','upper_bound'])
+        
+        # for each param in the param dict, append info to the output array
+        for name, param in params.items():
+            
+            lower_bound = 'n/a'
+            upper_bound = 'n/a'
+            
+            if type(param.bounds) != type(None):
+                lb = min(param.bounds)
+                ub = max(param.bounds)
+                
+                lower_bound = '{:.2e}'.format(lb)
+                upper_bound = '{:.2e}'.format(ub)
+    
+            val = float(param.value)
+            
+            arr = np.array([name,val,lower_bound,upper_bound])
+            
+            output_array = np.vstack((output_array,arr))
+            
+        # make sure the filename has an extension
+        if '.' not in filename:
+            filename += '.csv'
+        
+        # save the file
+        np.savetxt(filename,output_array,delimiter=',',fmt='%s')
+        
+    
+    
 
 def initial_concentrations(model_type,bulk_conc_dict,surf_conc_dict,n_layers,
                            static_surf_conc_dict=None,V=None,A=None,parameter_dict=None,vol_frac=1.0):
@@ -526,7 +652,7 @@ def make_layers(model_type,n_layers,bulk_radius,n_components=None,y0=None,parame
         
         layer_thick = np.ones(n_layers) * delta
         
-        # calculate A
+        # calculate A at each shell radius (from inside out)
         r = 0.0
         for i, thick in enumerate(layer_thick):
             layerno = n_layers - i - 1
