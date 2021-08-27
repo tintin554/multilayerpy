@@ -40,30 +40,37 @@ class Optimizer():
     fit the model to the data with various methods
     '''
     
-    def __init__(self,simulate_object,data,cost='MSE'):
+    def __init__(self,simulate_object,cost='MSE'):
         
         self.simulate = simulate_object
         self.model = simulate_object.model
         
         # make data into a Data object if not already
+        data = simulate_object.data
         if type(data) != simulate.Data:
             self.data = simulate.Data(data,norm=True)
         else:
-            self.data = data
+            self.data = simulate_object.data
         
         self.cost = cost
         self.cost_func_val = None
         
-    def cost_func(self,model_y):
+    def cost_func(self,model_y,cfunc=None):
         
-        cost = self.cost
-        expt = self.data
-        expt_y = expt.y
+        # use user-supplied cost function if supplied
+        if type(cfunc) != type(cfunc):
+            val = cfunc(self.data,model_y)
         
-        if cost == 'MSE':
-            
-            val = np.sum((np.square(expt_y-model_y) ** 2)/len(expt_y))
+        # use built-in cost function
+        else:
+            cost = self.cost
+            expt = self.data
+            expt_y = expt.y
         
+            if cost == 'MSE':
+                    
+                val = np.sum((np.square(expt_y-model_y) ** 2)/len(expt_y))
+                    
         self.cost_func_val = val
         return val
     

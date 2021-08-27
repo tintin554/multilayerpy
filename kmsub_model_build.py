@@ -633,7 +633,9 @@ class ModelBuilder():
         #     master_string_list.append(s)
             
         # define dydt function
-        func_def_strings = ['\ndef dydt(t,y,param_dict,V,A,Lorg,layer_thick):\n',
+        func_def_strings = ['\ndef dydt(t,y,param_dict,V,A,Lorg,layer_thick,param_evolution_func=None):\n',
+                            '    if type(param_evolution_func) != type(None):\n',
+                            '        param_dict = param_evolution_func(t,y,param_dict)',
                             '    """ Function defining ODEs, returns list of dydt"""\n',
                     ]
         

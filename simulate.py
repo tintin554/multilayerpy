@@ -44,7 +44,7 @@ class Simulate():
     
     '''
     
-    def __init__(self, model, params_dict):
+    def __init__(self, model, params_dict, data=None):
         
         # if Y0 == no_components, assume same for all
         # elif it is == Lorg * n_comp + n_comp, use as-is
@@ -83,6 +83,10 @@ class Simulate():
                 val = value.value
             except AttributeError:
                 self.parameters[par] = Parameter(value)
+        
+        self.data = data
+        if type(self.data) != type(None):
+            self.data = Data(data,norm=True)
         
         
     def calc_Vt_At_layer_thick(self):
@@ -292,9 +296,11 @@ class Simulate():
             
         
     def plot(self,norm=False,data=None):
-
-
-
+        
+        # if data not supplied with func call, use self.data
+        if type(data) == type(None):
+            data = self.data
+        
         
         mod_type = self.model.model_type.lower()
         # km-gap: V, A and layer thickness over time
