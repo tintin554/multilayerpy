@@ -40,7 +40,8 @@ class Optimizer():
     fit the model to the data with various methods
     '''
     
-    def __init__(self,simulate_object,cost='MSE'):
+    def __init__(self,simulate_object,cost='MSE',cfunc=None,param_evolution_func=None,
+                 param_evolution_func_extra_vary_params=None):
         
         self.simulate = simulate_object
         self.model = simulate_object.model
@@ -53,13 +54,16 @@ class Optimizer():
             self.data = simulate_object.data
         
         self.cost = cost
+        self.cfunc = cfunc
         self.cost_func_val = None
+        self.param_evolution_func = param_evolution_func
+        self.param_evolution_func_extra_vary_params = param_evolution_func_extra_vary_params
         
-    def cost_func(self,model_y,cfunc=None):
+    def cost_func(self,model_y):
         
         # use user-supplied cost function if supplied
-        if type(cfunc) != type(cfunc):
-            val = cfunc(self.data,model_y)
+        if type(self.cfunc) != type(None):
+            val = self.cfunc(self.data,model_y)
         
         # use built-in cost function
         else:
@@ -77,6 +81,7 @@ class Optimizer():
     def fit(self,method='least_squares',component_no='1',n_workers=1):
 
         sim = self.simulate
+        param_evolution_func_extra_vary_params = self.param_evolution_func_extra_vary_params
         
         # identify varying params, append to varying_params list and record order
         varying_params = []
@@ -89,9 +94,24 @@ class Optimizer():
                 varying_param_keys.append(param)
                 param_bounds.append(sim.parameters[param].bounds)
                 
-        
-        
-        def minimize_me(varying_param_vals,varying_param_keys,sim,component_no=component_no):
+        # account for extra varying params supplied to param_evolution_func
+        # if they are required
+        extra_vary_params_start_ind = None
+        if type(self.param_evolution_func) != type(None):
+            # get the starting index of the varying_param_vals list supplied to 
+            # minimize_me
+            if type(param_evolution_func_extra_vary_params) != type(None):
+                extra_vary_params_start_ind = len(varying_params)
+            
+                # now append the param_evolution_func_extra_params to varying_params
+                # only for least_squares optimisation (requires an initial guess)
+                if method == 'least_squares':
+                    for par in param_evolution_func_extra_vary_params:  
+                        varying_params.append(par.value)
+                        param_bounds.append(par.bounds)
+            
+        def minimize_me(varying_param_vals,varying_param_keys,sim,component_no=component_no,
+                        extra_vary_params_start_ind=extra_vary_params_start_ind):
             
             # unpack required params to run the model
             n_layers = sim.run_params['n_layers']
@@ -103,6 +123,11 @@ class Optimizer():
             ode_integrate_method = sim.run_params['ode_integrate_method']
             layer_thick = sim.run_params['layer_thick']
             Y0 = sim.run_params['Y0']
+            
+            if type(extra_vary_params_start_ind) != None:
+                additional_params = varying_param_vals[extra_vary_params_start_ind:]
+            else:
+                additional_params = None
             
             # update the simulate object parameters 
             for ind, param in enumerate(varying_param_keys):
@@ -120,7 +145,9 @@ class Optimizer():
             t_eval = self.data.x
             
           
-            model_output = integrate.solve_ivp(lambda t, y:model_import.dydt(t,y,sim.parameters,V,A,n_layers,layer_thick),
+            model_output = integrate.solve_ivp(lambda t, y:model_import.dydt(t,y,sim.parameters,V,A,n_layers,layer_thick,
+                                                                             param_evolution_func=self.param_evolution_func,
+                                                                             additional_params=additional_params),
                                                      (min(time_span),max(time_span)),
                                                      Y0,t_eval=t_eval,method=ode_integrate_method)
             
