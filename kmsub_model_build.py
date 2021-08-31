@@ -161,7 +161,7 @@ class ModelComponent:
     '''
     
     def __init__(self,component_number,reaction_scheme,
-                 name=None,gas=False,volatile=False):
+                 name=None,gas=False,volatile=False,comp_dependent_adsorption=False):
         # make strings representing surf, sub-surf, bulk and core dydt
         # dependent on reaction scheme
         # initially account for diffusion
@@ -183,6 +183,8 @@ class ModelComponent:
         self.param_dict = None
         
         self.gas = gas
+        
+        self.comp_dependent_adsorption = comp_dependent_adsorption
         
         self.reactions_added = False
         
@@ -593,7 +595,7 @@ class ModelBuilder():
        
        self.constructed = False
        
-    def build(self, name_extention='', date_tag=False, first_order_decays=None,
+    def build(self, name_extention='', date_tag=False, 
               use_scaled_k_surf=False, **kwargs):
         '''
         Builds the model and saves it to a separate .py file
@@ -728,6 +730,7 @@ class ModelBuilder():
         # first calculate surface coverage separately
         
         surf_cover_str = '\n    surf_cover = '
+        static_surf_cover_str = '\n    static_surf_cover = '
         counter = 0
         for comp in mod_comps.values():
             if mod_type.lower() == 'km-sub':
@@ -746,10 +749,12 @@ class ModelBuilder():
                 
                 if counter == 0:
                     surf_cover_str += f'delta_{comp_no}**2 * (y[{comp_no-1}*Lorg+2*{comp_no-1}] / A[0])'
+                    #static_surf_cover_str += f'delta_{comp_no}**2 * (y[{comp_no-1}*Lorg+2*{comp_no-1}+1] / A[0])'
                     counter += 1
                     
                 else:
                     surf_cover_str += f'+ delta_{comp_no}**2 * (y[{comp_no-1}*Lorg+2*{comp_no-1}] / A[0])'
+                    #static_surf_cover_str += f'+ delta_{comp_no}**2 * (y[{comp_no-1}*Lorg+2*{comp_no-1}+1] / A[0])'
                 
             self.req_params.add(f'delta_{comp.component_number}')
         
@@ -758,12 +763,27 @@ class ModelBuilder():
                 comp_no = comp.component_number
                 
                 if comp.name != None:
-                    master_string_list.append(f'\n    # component {comp_no} surf params\n')
+                    master_string_list.append(f'\n\n    # component {comp_no} surf params\n')
                 else:
-                    master_string_list.append(f'\n    # component {comp_no} ({comp.name}) surf params\n')
+                    master_string_list.append(f'\n\n    # component {comp_no} ({comp.name}) surf params\n')
                 
                 # surface coverage
                 master_string_list.append(surf_cover_str)
+                
+                # make alpha_s_0 composition-dependent if desired for this component
+                if comp.comp_dependent_adsorption == True:
+                    alpha_s_0_str = f'\n    alpha_s_0_{comp_no} = '
+                    # build up alpha_s_0 string
+                    for cn in range(len(mod_comps)):
+                        #if cn != comp_no: # is this valid?
+                        alpha_s_0_str += f'+ alpha_s_0_{comp_no}_{cn} * delta_{cn}**2 * (y[{cn-1}*Lorg+2*{cn-1}+1] / A[0]) '
+                        # update the required parameters
+                        self.req_params.add(f'alpha_s_0_{comp_no}_{cn}')
+                    
+                    # update the master string list
+                    master_string_list.append(alpha_s_0_str)
+                    
+                        
                 
                 # alpha_s_X, Z if km-gap
                 alpha_s_str = f'\n    alpha_s_{comp_no} = alpha_s_0_{comp_no} * (1-surf_cover)'

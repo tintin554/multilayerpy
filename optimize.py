@@ -59,14 +59,14 @@ class Optimizer():
         self.param_evolution_func = param_evolution_func
         self.param_evolution_func_extra_vary_params = param_evolution_func_extra_vary_params
         
-    def cost_func(self,model_y):
+    def cost_func(self,model_y,rp=None):
         
         # use user-supplied cost function if supplied
         if type(self.cfunc) != type(None):
-            val = self.cfunc(self.data,model_y)
+            val = self.cfunc(self.data,model_y,rp=rp)
         
         # use built-in cost function
-        else:
+        elif type(model_y) != type(None):
             cost = self.cost
             expt = self.data
             expt_y = expt.y
@@ -74,11 +74,24 @@ class Optimizer():
             if cost == 'MSE':
                     
                 val = np.sum((np.square(expt_y-model_y) ** 2)/len(expt_y))
+        else:
+            val = 0.0
                     
+        if type(rp) != type(None):
+            rp_expt = expt[:,-1] # experimental rp should be final column (in cm)
+            rp_cost_val = np.sum((np.square(rp_expt-rp) ** 2)/len(rp))
+            
+            if val != 0.0:
+                self.cost_func_val = (val + rp_cost_val) / 2
+                return (val + rp_cost_val) / 2
+            else:
+                self.cost_func_val = rp_cost_val
+                return rp_cost_val
+            
         self.cost_func_val = val
         return val
     
-    def fit(self,method='least_squares',component_no='1',n_workers=1):
+    def fit(self,method='least_squares',component_no='1',n_workers=1,fit_particle_radius=False):
 
         sim = self.simulate
         param_evolution_func_extra_vary_params = self.param_evolution_func_extra_vary_params
@@ -111,7 +124,7 @@ class Optimizer():
                         param_bounds.append(par.bounds)
             
         def minimize_me(varying_param_vals,varying_param_keys,sim,component_no=component_no,
-                        extra_vary_params_start_ind=extra_vary_params_start_ind):
+                        extra_vary_params_start_ind=extra_vary_params_start_ind,fit_particle_radius=fit_particle_radius):
             
             # unpack required params to run the model
             n_layers = sim.run_params['n_layers']
@@ -178,67 +191,84 @@ class Optimizer():
                 surf_num = surf_concs[f'{component_no}'] * A[0]
                 static_surf_num = np.zeros(len(surf_concs[f'{component_no}'])) # only applicable to km-gap (surf is static surf and sorption layer in km-sub)
                 
+                bulk_total_num = np.sum(bulk_num,axis=1)
+                total_number_molecules = bulk_total_num + surf_num + static_surf_num
                 
+                # the data is normalised, so model output will be normalised 
+                norm_number_molecules = total_number_molecules / total_number_molecules[0]
+                
+                # calculate the cost function
+                
+                cost_val = self.cost_func(norm_number_molecules)
             
             elif sim.model.model_type.lower() == 'km-gap':
-                # REMEMBER division by A or V to get molec. cm-2 or cm-3 (km-gap)
+                if type(component_no) != type(None):
+                    # REMEMBER division by A or V to get molec. cm-2 or cm-3 (km-gap)
+                    
+                    # calculate V_t and A_t at each time point
+        
+                    V_t, A_t, layer_thick = sim.calc_Vt_At_layer_thick()
+                    
+                    # collect surface concentrations
+                    surf_conc_inds = []
+                    for i in range(len(self.model.model_components)):
+                        cn = i + 1
+                        ind = (cn-1) * n_layers + 2 * (cn-1)
+                        surf_conc_inds.append(ind)
+                        
+                    surf_concs = {}
+                    # append to surf concs dict for each component
+                    for ind, i in enumerate(surf_conc_inds):
+                        surf_concs[f'{ind+1}'] = model_output.y.T[:,i] / A_t[:,0]
+                        
+                    # collect static surface concentrations
+                    static_surf_conc_inds = []
+                    for i in range(len(self.model.model_components)):
+                        cn = i + 1
+                        ind = (cn-1)*n_layers+2*(cn-1)+1
+                        static_surf_conc_inds.append(ind)
+                        
+                    static_surf_concs = {}
+                    # append to surf concs dict for each component
+                    for ind, i in enumerate(surf_conc_inds):
+                        static_surf_concs[f'{ind+1}'] = model_output.y.T[:,i] / A_t[:,0]
+                        
+                    # get bulk concentrations
+                    bulk_concs = {}
+                    for i in range(len(self.model.model_components)):
+                        cn = i + 1
+                        conc_output = model_output.y.T[:,(cn-1)*n_layers+2*(cn-1)+2:cn*n_layers+cn+(cn-1)+1] / V_t
+                        
+                        bulk_concs[f'{i+1}'] = conc_output
+                        
+                    self.surf_concs = surf_concs
+                    self.static_surf_concs = static_surf_concs
+                    self.bulk_concs = bulk_concs
                 
-                # calculate V_t and A_t at each time point
-    
-                V_t, A_t, layer_thick = sim.calc_Vt_At_layer_thick()
+                    
+                    # get total no of molecules of component of interest 
+                    
+                    bulk_num = bulk_concs[f'{component_no}'] * V_t
+                    surf_num = surf_concs[f'{component_no}'] * A_t[:,0]
+                    static_surf_num = static_surf_concs[f'{component_no}'] * A_t[:,0]
                 
-                # collect surface concentrations
-                surf_conc_inds = []
-                for i in range(len(self.model.model_components)):
-                    cn = i + 1
-                    ind = (cn-1) * n_layers + 2 * (cn-1)
-                    surf_conc_inds.append(ind)
+                    bulk_total_num = np.sum(bulk_num,axis=1)
+                    total_number_molecules = bulk_total_num + surf_num + static_surf_num
                     
-                surf_concs = {}
-                # append to surf concs dict for each component
-                for ind, i in enumerate(surf_conc_inds):
-                    surf_concs[f'{ind+1}'] = model_output.y.T[:,i] / A_t[:,0]
+                    # the data is normalised, so model output will be normalised 
+                    norm_number_molecules = total_number_molecules / total_number_molecules[0]
                     
-                # collect static surface concentrations
-                static_surf_conc_inds = []
-                for i in range(len(self.model.model_components)):
-                    cn = i + 1
-                    ind = (cn-1)*n_layers+2*(cn-1)+1
-                    static_surf_conc_inds.append(ind)
+                    # calculate the cost function
                     
-                static_surf_concs = {}
-                # append to surf concs dict for each component
-                for ind, i in enumerate(surf_conc_inds):
-                    static_surf_concs[f'{ind+1}'] = model_output.y.T[:,i] / A_t[:,0]
+                    cost_val = self.cost_func(norm_number_molecules)
+            
+                # also fit the particle radius with custom cost function (cfunc)
+                if fit_particle_radius:
                     
-                # get bulk concentrations
-                bulk_concs = {}
-                for i in range(len(self.model.model_components)):
-                    cn = i + 1
-                    conc_output = model_output.y.T[:,(cn-1)*n_layers+2*(cn-1)+2:cn*n_layers+cn+(cn-1)+1] / V_t
-                    
-                    bulk_concs[f'{i+1}'] = conc_output
-                    
-                self.surf_concs = surf_concs
-                self.static_surf_concs = static_surf_concs
-                self.bulk_concs = bulk_concs
-            
-            
-                # get total no of molecules of component of interest 
-                
-                bulk_num = bulk_concs[f'{component_no}'] * V_t
-                surf_num = surf_concs[f'{component_no}'] * A_t[:,0]
-                static_surf_num = static_surf_concs[f'{component_no}'] * A_t[:,0]
-            
-            bulk_total_num = np.sum(bulk_num,axis=1)
-            total_number_molecules = bulk_total_num + surf_num + static_surf_num
-            
-            # the data is normalised, so model output will be normalised 
-            norm_number_molecules = total_number_molecules / total_number_molecules[0]
-            
-            # calculate the cost function
-            
-            cost_val = self.cost_func(norm_number_molecules)
+                    # option to only fit to rp and not number of molecules
+                    if type(component_no) == type(None):
+                        norm_number_molecules = None
+                    cost_val = self.cost_func(norm_number_molecules,rp)
             
             
             #print(cost_val)

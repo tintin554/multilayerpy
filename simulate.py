@@ -272,7 +272,7 @@ class Simulate():
             static_surf_concs = {}
             # append to surf concs dict for each component
             for ind, i in enumerate(surf_conc_inds):
-                static_surf_concs[f'{ind+1}'] = model_output.y.T[:,i] / A_t[:,0]
+                static_surf_concs[f'{ind+1}'] = model_output.y.T[:,i+1] / A_t[:,0]
                 
             # get bulk concentrations
             bulk_concs = {}
@@ -530,6 +530,20 @@ class Simulate():
         
         # save the file
         np.savetxt(filename,output_array,delimiter=',',fmt='%s')
+        
+    def rp_vs_t(self):
+        '''
+        Calculate the radius of the particle/thickness of the film at each 
+        timepoint. Returns None if not KM-GAP.
+
+        '''
+        if self.model.reaction_scheme.model_type.model_type.lower() == 'km-gap':
+            Vt, At, layer_thick = self.calc_Vt_At_layer_thick()
+            
+            rp = np.sum(layer_thick,axis=1)
+        else:
+            rp = None
+        return rp
         
     
     
