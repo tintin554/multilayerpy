@@ -295,7 +295,7 @@ class Simulate():
         
             
         
-    def plot(self,norm=False,data=None):
+    def plot(self,norm=False,data=None,comp_number='all'):
         
         # if data not supplied with func call, use self.data
         if type(data) == type(None):
@@ -324,11 +324,14 @@ class Simulate():
             plt.title('Static surface layer concentrations',fontsize='large')
         
         for i in range(n_comps):
-            comp_name = mod_comps[f'{i+1}'].name
-            if mod_type == 'km-sub':
-                plt.plot(self.model_output.t,self.surf_concs[f'{i+1}'],label=comp_name)
-            elif mod_type == 'km-gap':
-                plt.plot(self.model_output.t,self.static_surf_concs[f'{i+1}'],label=comp_name)
+            if comp_number == 'all' or i+1 == comp_number:
+                comp_name = mod_comps[f'{i+1}'].name
+                if mod_type == 'km-sub':
+                    plt.plot(self.model_output.t,self.surf_concs[f'{i+1}'],label=comp_name)
+                elif mod_type == 'km-gap':
+                    plt.plot(self.model_output.t,self.static_surf_concs[f'{i+1}'],label=comp_name)
+                    
+                
         
         plt.ylabel('Surface conc. / cm$^{-2}$',fontsize='large')
         plt.xlabel('Time / s',fontsize='large')
@@ -349,23 +352,25 @@ class Simulate():
         #vol_matrix = np.ones(bulk_concs[0].shape) * self.run_params['V']
         
         for i in range(n_comps):
-            comp_name = mod_comps[f'{i+1}'].name
-            if mod_type == 'km-sub':
-                surf_no = self.surf_concs[f'{i+1}'] * self.run_params['A'][0]
-                bulk_no = self.bulk_concs[f'{i+1}'] * self.run_params['V']
-                stat_surf_no = np.zeros(len(surf_no))
-            elif mod_type == 'km-gap':
-                surf_no = self.surf_concs[f'{i+1}'] * At[:,0]
-                bulk_no = self.bulk_concs[f'{i+1}'] * Vt
-                stat_surf_no = self.static_surf_concs[f'{i+1}'] * At[:,0]
+            if comp_number == 'all' or i+1 == comp_number:
+                comp_name = mod_comps[f'{i+1}'].name
+                if mod_type == 'km-sub':
+                    surf_no = self.surf_concs[f'{i+1}'] * self.run_params['A'][0]
+                    bulk_no = self.bulk_concs[f'{i+1}'] * self.run_params['V']
+                    stat_surf_no = np.zeros(len(surf_no))
+                elif mod_type == 'km-gap':
+                    surf_no = self.surf_concs[f'{i+1}'] * At[:,0]
+                    bulk_no = self.bulk_concs[f'{i+1}'] * Vt
+                    stat_surf_no = self.static_surf_concs[f'{i+1}'] * At[:,0]
+                    
+                tot_bulk_no = np.sum(bulk_no,axis=1)
+                total_no = surf_no + tot_bulk_no + stat_surf_no                  
                 
-            tot_bulk_no = np.sum(bulk_no,axis=1)
-            total_no = surf_no + tot_bulk_no + stat_surf_no
-            
-            if norm:
-                plt.plot(self.model_output.t,total_no/max(total_no),label=comp_name)
-            else:
-                plt.plot(self.model_output.t,total_no,label=comp_name)
+                if norm:
+                    plt.plot(self.model_output.t,total_no/max(total_no),label=comp_name)
+                else:
+                    plt.plot(self.model_output.t,total_no,label=comp_name)
+                
         if norm:
             plt.ylabel('[component] / [component]$_{max}$',fontsize='large')
         else:
@@ -379,7 +384,11 @@ class Simulate():
             if cols == 2:
                 plt.scatter(data[:,0],data[:,1],facecolors='none',edgecolors='k',label='data')
             else:
-                plt.errorbar(data[:,0],data[:,1],yerr=data[:,2],mfc='none',
+                if norm:
+                    plt.errorbar(data[:,0],data[:,1],yerr=data[:,2]/max(data[:,1]),mfc='none',
+                                 mec='k',linestyle='none',label='data',marker='o',color='k')
+                else:
+                    plt.errorbar(data[:,0],data[:,1],yerr=data[:,2],mfc='none',
                              mec='k',linestyle='none',label='data',marker='o',color='k')
         
             plt.xlabel('Time')
@@ -387,11 +396,27 @@ class Simulate():
             plt.tight_layout()
             plt.show()
         except:
+            try: 
+                if norm:
+                    
+                    plt.errorbar(data.x,data.y,yerr=data.y_err/max(data.y),mfc='none',
+                                 mec='k',linestyle='none',label='data',marker='o',color='k')
+                    
+                else:
+                    plt.errorbar(data.x,data.y,yerr=data.y_err,mfc='none',
+                             mec='k',linestyle='none',label='data',marker='o',color='k')
+                
+                plt.xlabel('Time')
+                plt.legend()
+                plt.tight_layout()
+                plt.show()
+                
+            except:
             
-            plt.xlabel('Time')
-            plt.legend()
-            plt.tight_layout()
-            plt.show()
+                plt.xlabel('Time')
+                plt.legend()
+                plt.tight_layout()
+                plt.show()
             
         
     def plot_bulk_concs(self,cmap='viridis'):
@@ -712,7 +737,7 @@ class Data():
             
         if norm == True:
             self.y = self.y / self.y[norm_index]
-            self.y_err = self.y_err / self.y[norm_index]
+            self.y_err = self.y_err / data[:,1][norm_index]
         
 
 
