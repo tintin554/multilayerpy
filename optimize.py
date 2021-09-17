@@ -37,7 +37,35 @@ from scipy.optimize import differential_evolution, minimize
 class Optimizer():
     '''
     An object which will take in a Simulate, Model and Data object in order to 
-    fit the model to the data with various methods
+    fit the model to the data with various methods.
+    
+    Parameters
+    ----------
+    simulate_object : multilayerpy.simulate.Simulate 
+        A Simulate object created in the model building process.
+    cost : str, optional
+        The cost function to use in the optimisation process.
+        Current option is mean-squared error 'MSE'.
+    cfunc : func, optional
+        A function which takes in data (in the Data object format), model_y
+        values and the rp parameter supplied to the cost_func method. 
+        Returns the value of the cost function. Lower values = better fit.
+    param_evolution_func : func, optional
+        A function which is called f(t,y,param_dict,param_evolution_func_extra_vary_params).
+        It returns the param_dict and allows for model parameters to evolve
+        over time, values of y (array of ODE solutions evaluated at time t).
+        Parameters can be parameterised with extra parameters which themselves can
+        vary. See param_evolution_func_extra_vary_params below. 
+    param_evolution_func_extra_vary_params : list, optional
+        List of Parameter objects which represent additional parameters used
+        to evolve/parameterise model input parameters. These values can be optimised
+        during model optimisation. Supplied to the param_evolution_func function.
+    lnprior_func : func, optional
+        A custom log-prior function for model parameters. Takes in self and array
+        of varying parameters as arugments. 
+    lnlike_func : func, optional
+        A custom log-likelihood function which takes y_experiment, y_model and 
+        (optionally) y_err and returns the log-likelihood of the fit. 
     '''
     
     def __init__(self,simulate_object,cost='MSE',cfunc=None,param_evolution_func=None,
@@ -68,13 +96,33 @@ class Optimizer():
         self._vary_param_bounds = None
         self._emcee_sampler = None
         
-    def cost_func(self,model_y,rp=None):
+    def cost_func(self,model_y,rp=False):
+        '''
+        Will calculate the cost function used in the optimisation process. 
+        A custom cost function will be used if suppled via the cfunc attribute 
+        of the Optimizer object. 
         
+        If rp and model_y provided, will calculate a weighted cost function. 
+
+        Parameters
+        ----------
+        model_y : np.ndarray
+            Model y values. If None, assumes only rp data will be fitted to.
+        rp : bool, optional
+            Whether to fit to particle radius/film thickness data.
+            This data should be the final column in the Data object. 
+
+        Returns
+        -------
+        float
+            Cost function value.
+
+        '''
         # use user-supplied cost function if supplied
         if type(self.cfunc) != type(None):
             val = self.cfunc(self.data,model_y,rp=rp)
         
-        # use built-in cost function
+        # use built-in cost function (MSE)
         elif type(model_y) != type(None):
             cost = self.cost
             expt = self.data
@@ -101,6 +149,21 @@ class Optimizer():
         return val
     
     def lnlike(self,vary_params):
+        '''
+        Calculate the log-likelihood of the model-data fit for MCMC sampling.
+        
+        Parameters
+        ----------
+        vary_params : np.ndarray
+            An array of the varying model parameters.
+
+        Returns
+        -------
+        loglike : float
+            The log-likelihood of the model fit.
+
+        '''
+        
         data = self.data
         sim = self.simulate
         # check if data have yerrs
@@ -251,6 +314,20 @@ class Optimizer():
         return loglike
     
     def lnprior(self,vary_params):
+        '''
+        Calculate the log-prior of the parameter set for MCMC sampling.
+
+        Parameters
+        ----------
+        vary_params : np.ndarray
+            An array of the varying model parameters.
+
+        Returns
+        -------
+        float
+            The log-prior probability of the selected parameter set.
+
+        '''
         vary_param_bounds = self._vary_param_bounds
         violation = False
         # make sure all parameters are within their bounds
@@ -264,6 +341,20 @@ class Optimizer():
             return 0.0 # uniform prior
         
     def lnprob(self,vary_params):
+        '''
+        Calculate the log-probability for a parameter set, considering the priors. 
+
+        Parameters
+        ----------
+        vary_params : np.ndarray
+            An array of the varying model parameters..
+
+        Returns
+        -------
+        float
+            The log-probability for the model-data system, considering priors.
+
+        '''
         lp = self.lnprior(vary_params)
         if not np.isfinite(lp):
             return -np.inf
@@ -272,7 +363,34 @@ class Optimizer():
         
     
     def fit(self,method='least_squares',component_no='1',n_workers=1,fit_particle_radius=False):
+        '''
+        Use either a local or global optimisation algorithm to fit the model
+        to the data. 
+
+        Parameters
+        ----------
+        method : str, optional
+            Algorithm to be used. 'least_squares' (local) or 'differential_evolution' (global). 
+            The default is 'least_squares'.
+        component_no : int, optional
+            The model component to fit to the data. The default is '1'.
+        n_workers : int, optional
+            Number of cores to use (only for 'differential_evolution' method). 
+            The default is 1.
+        fit_particle_radius : bool, optional
+            Whether to fit to particle radius data. The default is False.
+            
+        returns
+        ----------
+        optimize_result : scipy.optimize.OptimizeResult
+            The optimization result represented as a OptimizeResult object.
+            Important attributes are: x the solution array, success a Boolean
+            flag indicating if the optimizer exited successfully and message
+            which describes the cause of the termination. See the documentation
+            for more details: 
+            https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.differential_evolution.html
         
+        '''
         self._fitting_component_no = component_no
         sim = self.simulate
         param_evolution_func_extra_vary_params = self.param_evolution_func_extra_vary_params
@@ -306,6 +424,35 @@ class Optimizer():
             
         def minimize_me(varying_param_vals,varying_param_keys,sim,component_no=component_no,
                         extra_vary_params_start_ind=extra_vary_params_start_ind,fit_particle_radius=fit_particle_radius):
+            '''
+            The function to minimise during the fitting process. 
+
+            Parameters
+            ----------
+            varying_param_vals : array-type
+                An array of varying model parameters to be optimised.
+            varying_param_keys : list
+                List of parameter dictionary keys corresponding to the parameter
+                represented in varying_param_vals.
+            sim : multilayerpy.simulate.Simulate 
+                The simulate object to be optimised.
+            component_no : int, optional
+                The component number of the model component to fit to. 
+                i.e. If the experimental data corresponds to component number 4,
+                fit to component_no = 4.
+            extra_vary_params_start_ind : int, optional
+                The starting index for the 'extra' varying parameters 
+                (not included in the parameter dictionary) used in the parameter
+                evolution function. 
+            fit_particle_radius : bool, optional
+                Whether or not to fit to particle radius data. 
+
+            Returns
+            -------
+            cost_val : float
+                Value of the cost function.
+
+            '''
             
             # unpack required params to run the model
             n_layers = sim.run_params['n_layers']
@@ -390,6 +537,9 @@ class Optimizer():
         
                     V_t, A_t, layer_thick = sim.calc_Vt_At_layer_thick()
                     
+                    # get radius of the particle as fn of time
+                    rp_t = np.sum(layer_thick,axis=1)
+                    
                     # collect surface concentrations
                     surf_conc_inds = []
                     for i in range(len(self.model.model_components)):
@@ -449,7 +599,7 @@ class Optimizer():
                     # option to only fit to rp and not number of molecules
                     if type(component_no) == type(None):
                         norm_number_molecules = None
-                    cost_val = self.cost_func(norm_number_molecules,rp)
+                    cost_val = self.cost_func(norm_number_molecules,rp_t)
             
             
             #print(cost_val)
@@ -494,6 +644,31 @@ class Optimizer():
         return result
         
     def sample(self,samples,n_walkers=100, n_burn=0,pool=None,**kwargs):
+        '''
+        
+
+        Parameters
+        ----------
+        samples : int
+            The number of MCMC samples (steps) to take.
+        n_walkers : int, optional
+            The number of walkers to initialise for MCMC sampling.
+        n_burn : int, optional
+            Number of burn-in steps before the production MCMC run. 
+        pool : optional
+            An object with a map method that follows the same calling sequence
+            as the built-in map function. This is generally used to compute the
+            log-probabilities for the ensemble in parallel.
+        
+        Further details about the emcee EnsembleSampler object are available 
+        in its documentation: https://emcee.readthedocs.io/en/stable/user/sampler/
+
+        Returns
+        -------
+        sampler : emcee.EnsembleSampler 
+            EnsembleSampler object.
+
+        '''
         
         sim = self.simulate
         param_evolution_func_extra_vary_params = self.param_evolution_func_extra_vary_params

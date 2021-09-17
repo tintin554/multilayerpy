@@ -42,6 +42,15 @@ class Simulate():
     A class which takes in a ModelBuilder object and (optionally) some data
     to fit to.
     
+    Parameters
+    ----------
+    model : multilayerpy.build.ModelBuilder
+        The model which is to be run. 
+    params_dict : dict
+        A dictionary of multilayerpy.build.Parameter objects which are used to 
+        run the model. 
+    data : multilayerpy.simulate.Data or np.ndarray
+        Experimental data for use during model optimisation. 
     '''
     
     def __init__(self, model, params_dict, data=None):
@@ -74,6 +83,8 @@ class Simulate():
         self.bulk_concs = {}
         self.static_surf_concs = {}
         self.optimisation_result = None
+        self.param_evo_func = None
+        self.param_evo_additional_params = None
         
         # convert parameter dictionary values to Parameter objects if they are not
         # this will help with using the Optimizer
@@ -88,11 +99,18 @@ class Simulate():
         if type(self.data) != type(None):
             self.data = Data(data,norm=True)
         
+        self._dydt = None
         
     def calc_Vt_At_layer_thick(self):
 
         '''
         calculate V and A of each layer at each timepoint in the simulation
+        
+        returns
+        ----------
+        V_t, A_t, thick_t : np.ndarray
+            Arrays of layer volume, area and thickness at each time point in 
+            the simulation.
         '''
         
 
@@ -170,14 +188,80 @@ class Simulate():
         return Vtot, A, layer_thick
         
 
-    def run(self,n_layers, rp, time_span, n_time, V, A, layer_thick, dense_output=False,
-                 Y0=None, ode_integrator='scipy',
+    def run(self,n_layers, rp, time_span, n_time, V, A, layer_thick, Y0,dense_output=False,
+                  ode_integrator='scipy',
                  ode_integrate_method='BDF', rtol=1e-3, atol=1e-6):
         '''
         Runs the simulation with the input parameters provided. 
         Model output is a scipy OdeResult object
         Updates the model_output, which includes an array of shape = (n_time,Lorg*n_components + n_components)
-
+        
+        Parameters
+        ----------
+        n_layers : int
+            Number of model bulk layers. 
+        rp : float
+            The particle radius/film thickness (in cm).
+        time_span : tup or list
+            Times (in s) between which to perform the simulation.
+        n_time : float or int
+            The number of timepoints to be saved by the solver. 
+        V : np.ndarray
+            The initial bulk layer volumes.
+        A : np.ndarray
+            The initial bulk layer surface areas.
+        layer_thick : np.ndarray
+            The initial bulk layer thicknesses. 
+        dense_output : bool
+            Whether to return the dense output from the ODE solver. 
+        Y0 : np.ndarray
+            The initial concentrations of each component in each model layer.
+        ode_integrator : str
+            The name of the integrator used to solve the ODEs.
+        ode_integrate_method : str
+            The method used to solve the ODE system. 
+        rtol : float
+            The relative tolerance value used to specify integration error tolerance.
+            See https://docs.scipy.org/doc/scipy/reference/generated/scipy.integrate.solve_ivp.html
+            for details.
+        atol : float
+            The absolute tolerance value used to specify integration error tolerance.
+            See https://docs.scipy.org/doc/scipy/reference/generated/scipy.integrate.solve_ivp.html
+            for details.
+        
+        returns
+        ----------
+        Bunch object with the following fields defined:
+             
+        t : ndarray, shape (n_points,)
+            Time points.
+        y : ndarray, shape (n, n_points)
+            Values of the solution at `t`.
+        sol : `OdeSolution` or None
+            Found solution as `OdeSolution` instance; None if `dense_output` was
+            set to False.
+        t_events : list of ndarray or None
+            Contains for each event type a list of arrays at which an event of
+            that type event was detected. None if `events` was None.
+        y_events : list of ndarray or None
+            For each value of `t_events`, the corresponding value of the solution.
+            None if `events` was None.
+        nfev : int
+            Number of evaluations of the right-hand side.
+        njev : int
+            Number of evaluations of the Jacobian.
+        nlu : int
+            Number of LU decompositions.
+        status : int
+            Reason for algorithm termination:
+                * -1: Integration step failed.
+                *  0: The solver successfully reached the end of `tspan`.
+                *  1: A termination event occurred.
+        message : string
+            Human-readable description of the termination reason.
+        success : bool
+            True if the solver reached the interval end or a termination event
+            occurred (``status >= 0``).
         '''
         
         # record run parameters
@@ -204,15 +288,26 @@ class Simulate():
         # import the model from the .py file created in the model building
         # process
         model_import = importlib.import_module(f'{self.model.filename[:-3]}')
-            
+        
+        # save dydt func for picklability 
+        self._dydt = model_import.dydt
+        
         # define time interval
         tspan = np.linspace(min(time_span),max(time_span),n_time)
         
         start_int = time.time()
-        model_output = integrate.solve_ivp(lambda t, y:model_import.dydt(t,y,params,V,A,n_layers,layer_thick),
-                                                 (min(time_span),max(time_span)),
-                                                 Y0,t_eval=tspan,method=ode_integrate_method,
-                                                 rtol=rtol,atol=atol,dense_output=dense_output)
+        if type(self.param_evo_func) == type(None):
+            model_output = integrate.solve_ivp(lambda t, y:self._dydt(t,y,params,V,A,n_layers,layer_thick),
+                                                     (min(time_span),max(time_span)),
+                                                     Y0,t_eval=tspan,method=ode_integrate_method,
+                                                     rtol=rtol,atol=atol,dense_output=dense_output)
+        else:
+            model_output = integrate.solve_ivp(lambda t, y:self._dydt(t,y,params,V,A,n_layers,layer_thick,
+                                                                             param_evolution_func=self.param_evo_func,
+                                                                             additional_params=self.param_evo_additional_params),
+                                                     (min(time_span),max(time_span)),
+                                                     Y0,t_eval=tspan,method=ode_integrate_method,
+                                                     rtol=rtol,atol=atol,dense_output=dense_output)
         self.model_output = model_output
         
         end_int = time.time()
@@ -296,6 +391,23 @@ class Simulate():
             
         
     def plot(self,norm=False,data=None,comp_number='all'):
+        '''
+        
+        Plots the model output.
+
+        Parameters
+        ----------
+        norm : bool, optional
+            Whether to normalise the model output. The default is False.
+        data : np.ndarray, optional
+            Data to plot with the model output. The default is None.
+        comp_number : int, str or list, optional
+            The component(s) of the model output to plot. The default is 'all'.
+
+        Returns
+        -------
+        matplotlib.pyplot.figure object
+        '''
         
         # if data not supplied with func call, use self.data
         if type(data) == type(None):
@@ -420,6 +532,16 @@ class Simulate():
             
         
     def plot_bulk_concs(self,cmap='viridis'):
+        '''
+        Plots heatmaps of the bulk concentration of each model component.
+        y-axis is layer number, x-axis is time (s)
+        
+        Parameters
+        ----------
+        cmap : str, optional
+            The colourmap supplied to matplotlib.pyplot.pcolormesh().
+
+        '''
         
         n_comps = len(self.bulk_concs)
         
@@ -450,6 +572,19 @@ class Simulate():
         
         if selected components desired, supply a list of integers. 
         if one component, supply an int (component number)
+        
+        Parameters
+        ----------
+        components : str or list, optional
+            The component number of the component of interest. Either one number
+            for a single component output, a list of component numbers of interest
+            or 'all' which outputs x-y data for all components.
+            
+        returns
+        ----------
+        xy_data : np.ndarray
+            x-y data, first column is time (s) and the rest are in component number order
+            or in the order supplied in the components list (if a list).
         '''
         
         A = self.run_params['A']
@@ -524,6 +659,11 @@ class Simulate():
     def save_params_csv(self,filename='model_parameters.csv'):
         '''
         Saves model parameters (name, value and bounds - if available) to a .csv file
+        
+        Parameters
+        ----------
+        filename : str, optional
+            The filename of the .csv file to be saved.
         '''
         
         params = self.parameters
@@ -560,7 +700,12 @@ class Simulate():
         '''
         Calculate the radius of the particle/thickness of the film at each 
         timepoint. Returns None if not KM-GAP.
-
+        
+        returns
+        ----------
+        rp : np.ndarray
+            radius of the particle (or film thickness) at each timepoint of the simulation. 
+        
         '''
         if self.model.reaction_scheme.model_type.model_type.lower() == 'km-gap':
             Vt, At, layer_thick = self.calc_Vt_At_layer_thick()
@@ -579,9 +724,37 @@ def initial_concentrations(model_type,bulk_conc_dict,surf_conc_dict,n_layers,
     '''
     Returns an array of initial bulk and surface concentrations (Y0)
     
-    bulk_conc: dict of initial bulk concentration of each component (key = component number)
-    surf_conc: dict of initial surf concentration of each component (key = component number)
-    n_layers: number of model layers
+    Parameters
+    ----------
+    model_type : multilayerpy.build.ModelType
+        The model type under consideration.
+    bulk_conc: dict
+        dict of initial bulk concentration of each component (key = component number)
+    surf_conc: dict
+        dict of initial surf concentration of each component (key = component number)
+    n_layers: int
+        number of model layers
+    static_surf_conc_dict : dict, optional
+        For KM-GAP models, the initial static-surface layer concentration needs to be
+        supplied for each component.
+    V : np.ndarray, optional
+        The volume of each bulk layer. Used to calculate initial total number of
+        molecules for KM-GAP models. 
+    A : np.ndarray, optional
+        The surface area of each bulk layer. Used to calculate initial total number of
+        molecules for KM-GAP models. 
+    parameter_dict : dict, optional
+        dict of multilayerpy.build.Parameter objects. For calculation of initial
+        number of molecules in each model layer for KM-GAP models. 
+    vol_fract : float or list, optional
+        The volume fraction of each model component. Supplied as a list of floats in 
+        component number order. 
+        
+    returns
+    ----------
+    Y0 : np.ndarray
+        An array of length n_layers defining the initial concentration of each 
+        model component in the surface and bulk layers. Supplied to the ODE solver.
     '''
     
     n_comps = len(bulk_conc_dict)
@@ -641,15 +814,27 @@ def initial_concentrations(model_type,bulk_conc_dict,surf_conc_dict,n_layers,
 
 
 
-def make_layers(model_type,n_layers,bulk_radius,n_components=None,y0=None,parameter_dict=None):
+def make_layers(model_type,n_layers,bulk_radius):
 
     '''
-    defines the volume, surface area and layer thickness for each model layer
+    Defines the volume, surface area and layer thickness for each model layer.
+    Bulk radius is defined as the particle radius - molecular diameter.
     
-    Returns a tuple of V, A and layer_thick arrays
+    Parameters
+    ----------
+    model_type : multilayerpy.build.ModelType
+        The model type under consideration.
+    n_layers : int
+        Number of model bulk layers.
+    bulk_radius : float
+        The bulk radius (in cm) of the particle or film thickness.
+    n_components : int, optional
     
-    bulk radius is normally defined as the particle radius - molecular diameter
-    
+    returns
+    ----------
+    V, A, layer_thick : tup
+        tuple of np.ndarrays for bulk layer volumes (V), surface areas (A) and 
+        layer thicknesses (layer_thick) all with length = n_layers
     '''
     # actually, get y0 from initial conc...
     # if model_type.mod_type.lower() == 'km-gap':
@@ -720,6 +905,26 @@ def make_layers(model_type,n_layers,bulk_radius,n_components=None,y0=None,parame
  
     
 class Data():
+    '''
+    A data class which contains data to be optimised to.
+    
+    Parameters
+    ----------
+    data : np.ndarray or str
+        Input data supplied as a np.ndarray or filename for a file containing
+        the input data in the format: 
+            column 1 --> time (s)
+            column 2 --> y_experiment
+            column 3 (optional) --> y_error
+            column 4 (optional) --> particle radius
+    n_skipped_rows : int, optional
+        The number of rows to skip when reading in the data from a file. 
+    norm : bool, optional
+        Whether or not to normalise the input data.
+    norm_index : int, optional
+        The y_experiment column index to normalise data to. Assumed to be the
+        first (0) index unless specified. 
+    '''
     
     def __init__(self,data,n_skipped_rows=0,norm=False,norm_index=0):
         
@@ -740,7 +945,3 @@ class Data():
             self.y_err = self.y_err / data[:,1][norm_index]
         
 
-
-# function to make Y0?
-
-# function to make V and A arrays - makelayers

@@ -30,6 +30,15 @@ from datetime import datetime
 class ModelType:
     '''
     A class which will contain information about the model type
+    
+    Parameters
+    ----------
+    model_type : str
+        Defines the model type. Currently allowed types are 'km-sub'
+        and 'km-gap'
+    geometry : str
+        Defines the geometry of the model. Either 'spherical' or 'film'
+    
     '''
     
     def __init__(self, model_type, geometry):
@@ -47,11 +56,54 @@ class ModelType:
 class ReactionScheme:
     '''
     Defining the reaction scheme (what reacts with what)
+    
+    Parameters
+    ----------
+    model_type_object : multilayerpy.Build.ModelType
+        Defines the model type necessary for naming conventions.
+    name : str
+        Name of the reaction scheme
+    reaction_tuple_list : list
+        List of tuples defining which components react with which.
+        
+        e.g. >>> reaction_tuple_list = [(1,2),(1,3)]
+        
+        This states that the first reaction is between component 1 and 2 and 
+        the second reaction is between component 1 and 3.
+        
+    products_of_reactions_list : list
+        List of tuples defining which components are reaction products.
+        
+        e.g. >>> products_of_reactions_list = [(3,),(4,)]
+        
+        This states that component 3 is a product of reaction 1 and component 4
+        is a product of reaction 2.
+    reactant_stoich : list
+        List of tuples which define the stoichiometric coefficients (if any) 
+        applied to each reactant. (Optional).
+        
+        e.g.
+        >>> reaction_tuple_list = [(1,2)]
+        >>> reactant_stoich = [(0.5,1.0)]
+        
+        This states that for reaction 1, reactant 1 reacts with reactant 2 and
+        their stoichiometric coefficients are 0.5 and 1.0, respectively.
+    product_stoich : list
+        List of tuples which define the stoichiometric coefficients (if any) 
+        applied to each product. (Optional).
+        
+        e.g.
+        >>> products_of_reactions_list = [(3,4)]
+        >>> reactant_stoich = [(0.5,0.5)]
+        
+        This states that for reaction 1, the products 3 and 4 have stoichiometric
+        coefficients (branching ratios) of 0.5.  
+    
     '''
     
     def __init__(self,model_type_object,name='rxn_scheme',
-                 reaction_tuple_list=None,products_of_reactions_list=[],
-                 component_names=[],reactant_stoich=[], product_stoich=[]):
+                 reaction_tuple_list=[],products_of_reactions_list=[],
+                 reactant_stoich=[], product_stoich=[]):
         
         # model type
         self.model_type = model_type_object
@@ -75,7 +127,7 @@ class ReactionScheme:
         self.product_stoich = product_stoich
         
         # list of component names, defaults to empty list if nothing supplied
-        self.comp_names = component_names # *error if not list of strings with len = n_components
+        #self.comp_names = component_names # *error if not list of strings with len = n_components
         
         # make a "checked" state
         self.checked = False
@@ -100,26 +152,30 @@ class ReactionScheme:
                 unique_comps.add(x)
                 
             else:
-                x, y = tup
-                # add component numbers to unique comps set
-                unique_comps.add(x)
-                unique_comps.add(y)
+                for c in tup:
+                    # add component numbers to unique comps set
+                    unique_comps.add(c)
+                    
+                # x, y = tup
+                # # add component numbers to unique comps set
+                # unique_comps.add(x)
+                # unique_comps.add(y)
             
         # set the number of components
         self.n_components = len(unique_comps)
         
         # comp names should be strings
-        isstring_bool_list = []
-        for name in self.comp_names:
-            string_bool = name == str
-            isstring_bool_list.append(string_bool)
+        # isstring_bool_list = []
+        # for name in self.comp_names:
+        #     string_bool = name == str
+        #     isstring_bool_list.append(string_bool)
             
-        try:
-            if self.comp_names != []:
-                False not in isstring_bool_list
+        # try:
+        #     if self.comp_names != []:
+        #         False not in isstring_bool_list
                 
-        except TypeError as err:
-            print(err,'...All component names need to be strings')
+        # except TypeError as err:
+        #     print(err,'...All component names need to be strings')
             
         self.checked = True
         
@@ -150,18 +206,33 @@ class ReactionScheme:
                     s += f'+ {comp_no} '
                     
             strings.append(s)
-            strings.append('#########################################################')
+        strings.append('#########################################################')
         for s in strings:
             print(s)
     
     
 class ModelComponent:
     '''
-    Model component class with information about it's role in the reaction scheme
+    Model component class representing a model component and key properties.
+    
+    Parameters
+    ----------
+    component_number : int
+        The number given to the component. This is how the component is referred
+        to in the model building process.
+    reaction_scheme : multilayerpy.build.ReactionScheme
+        The reaction scheme object created for a model system. 
+    name : str 
+        The name of the model component. 
+    gas : bool
+        Whether or not the component is found in the gas phase (volatile)
+    comp_dependent_adsorption : bool
+        Whether the adsorption of this component is dependent on the composition
+        of the particle surface. 
     '''
     
     def __init__(self,component_number,reaction_scheme,
-                 name=None,gas=False,volatile=False,comp_dependent_adsorption=False):
+                 name=None,gas=False,comp_dependent_adsorption=False):
         # make strings representing surf, sub-surf, bulk and core dydt
         # dependent on reaction scheme
         # initially account for diffusion
@@ -284,17 +355,34 @@ class ModelComponent:
 
 class DiffusionRegime():
     '''
-    XXX
     Calling this will build the diffusion regime and return a list of strings
     defining the composition-dependent (or not) diffusion evolution for each 
     component and the definition of kbb for each component.
-    '''
-    # vignes, obstruction, no compositional dependence
+    
+    Parameters
+    ----------
+    model_type : multilayerpy.build.ModelType
+        Defines the model type being considered.
+    model_components_dict : dict
+        A dictionary of multilayer.build.Parameter objects representing each 
+        model parameter.
+    regime : str
+        Which diffusion regime to use. 
+    diff_dict : dict
+        A dictionary defining how each component's diffusivity depends on composition.
         
-    # which components have a comp dependence?
-    # for each component write definition of D as a string
-    # ouput a string which defines kbb, ksb etc (?)
-    def __init__(self,model_type,model_components_dict,regime='vignes',diff_dict=None):
+        e.g.
+        >>> diff_dict = {'1' : (2,3),
+                         '2' : None,
+                         '3' : None}
+        
+        This states that component 1 diffusivity depends on the amount of 
+        component 2 and 3 and that the diffusivities of component 2 and 3 are
+        not composition dependent.                        
+    '''
+
+    def __init__(self,model_type,model_components_dict,regime='vignes',
+                 diff_dict=None):
         
         # ModelType object
         self.model_type = model_type
@@ -340,6 +428,12 @@ class DiffusionRegime():
         
         self.req_diff_params = None
         
+        self._equivalent_diffusion_component_numbers = []
+        if type(self.diff_dict) == dict:
+            for comp in self.diff_dict:
+                if type(self.diff_dict[comp]) == int:
+                    self._equivalent_diffusion_component_numbers.append(int(comp))
+            
         
     def __call__(self):
         
@@ -367,12 +461,21 @@ class DiffusionRegime():
             # only consider components who's diffusivities are composition-
             # dependent
             if diff_dict[f'{i+1}'] != None:
-                
-                # composition dependence tuple
+                 # composition dependence tuple
                 compos_depend_tup = diff_dict[f'{i+1}']
                 
+                # if D of this component is same as another 
+                #(i.e. int supplied in diffusion dict), make this so
+                if type(compos_depend_tup) == int:
+                    copy_diffusion_comp_no = compos_depend_tup
+                    Db_string = f'Db_{i+1}_arr = Db_{copy_diffusion_comp_no}_arr'
+                    Ds_string = f'Ds_{i+1} = Ds_{copy_diffusion_comp_no}'
+                    Db_definition_string_list.append(Db_string)
+                    Ds_definition_string_list.append(Ds_string)
+               
+                
                 # vignes diffusion
-                if self.regime == 'vignes':
+                elif self.regime == 'vignes':
                     # initially dependent on D_comp in pure comp
                     # raised to the power of fraction of component
                     Db_string = f'Db_{i+1}_arr = (Db_{i+1}_arr**fb_{i+1}) '
@@ -538,37 +641,26 @@ class DiffusionRegime():
         # this diffusion regime is now constructed
         self.constructed = True        
         
-    def __str__(self):
-        '''
-        This will define what gets printed to the console when
-        print(DiffusionRegime) is called.
-        
-        Returns
-        -------
-        None.
 
-        '''
-    def savetxt(self,filename):
-        '''
-        Save the diffusion regime as a .txt file with each Db/Ds and kbb
-        definition for each component
-
-        Returns
-        -------
-        saved .txt file in current working directory
-
-        '''
 
 class ModelBuilder():
     '''
     An object which constructs the model file from the reaction scheme, list
-    of model components and a diffusion regime
+    of model components and a diffusion regime.
+    
+    Parameters
+    ----------
+    reaction_scheme : multilayerpy.build.ReactionScheme
+        The reaction scheme used in the model.
+    model_components_dict : dict
+        A dictionary of multilayer.build.Parameter objects representing each 
+        model parameter.
+    diffusion_regime : multilayerpy.build.DiffusionRegime
+        The diffusion regime used in the model. 
     '''
     
     def __init__(self,reaction_scheme,model_components_dict,diffusion_regime):
-       '''
-       XXX
-       '''
+
 
        self.reaction_scheme = reaction_scheme
        
@@ -600,6 +692,21 @@ class ModelBuilder():
         '''
         Builds the model and saves it to a separate .py file
         Different for different model types 
+        
+        Parameters
+        ----------
+        name_extention : str
+            An extra tag added to the model filename.
+        date_tag : bool
+            Whether to add a date tag to the filename with today's date.
+        use_scaled_k_surf : bool
+            Whether to use a scale factor to convert from bulk second order rate
+            constants to surface second order rate constants. 
+            
+        returns
+        ----------
+        Saves a .py file in the current working directory containing the model 
+        code defining the system of ODEs to be solved. 
         '''
         # the list of strings which will be used with file.writelines()
         # at the end
@@ -678,7 +785,7 @@ class ModelBuilder():
                 Vtot_str += '+ ' + vtot + ' '
             
             sum_V_str = '\n    sum_V = np.cumsum(np.flip(Vtot))'
-            r_pos_str = '\n    r_pos = np.cbrt((3.0* np.flip(sum_V))/(4*np.pi))' # different for planar
+            r_pos_str = '\n    r_pos = np.cbrt((3.0* np.flip(sum_V))/(4*np.pi))' # different for planar SORT THIS OUT
             A_str = '\n    A = 4 * np.pi * r_pos**2'
             
             layer_thick_str = '\n    layer_thick = r_pos[:-1] - r_pos[1:]'
@@ -882,12 +989,13 @@ class ModelBuilder():
         accounted_Db_strings = []
         for comp in mod_comps.values():
             comp_no = comp.component_number
-            Db_arr_string = f'\n    Db_{comp_no}_arr = np.ones(Lorg) * Db_{comp_no}'
+            if comp_no not in self.diffusion_regime._equivalent_diffusion_component_numbers:
+                Db_arr_string = f'\n    Db_{comp_no}_arr = np.ones(Lorg) * Db_{comp_no}'
+                
+                accounted_Db_strings.append(f'Db_{comp_no}')
+                master_string_list.append(Db_arr_string)
             
-            accounted_Db_strings.append(f'Db_{comp_no}')
-            master_string_list.append(Db_arr_string)
-            
-            self.req_params.add(f'Db_{comp_no}')
+            #self.req_params.add(f'Db_{comp_no}')
             
         # make Db arrays for mixed compositions     
         for param in self.req_params:
@@ -898,6 +1006,15 @@ class ModelBuilder():
             
         
         diff_regime = self.diffusion_regime
+        
+        master_string_list.append('\n\n    # bulk diffusion\n')
+        master_string_list.append('\n')
+        #Db
+        for s in diff_regime.Db_strings:
+            master_string_list.append(four_space+s+'\n')
+        # kbb
+        for s in diff_regime.kbb_strings:
+            master_string_list.append(four_space+s+'\n')
         
         master_string_list.append('\n\n    # surface diffusion\n')
         #Ds
@@ -920,14 +1037,7 @@ class ModelBuilder():
         for s in diff_regime.kssb_strings:
             master_string_list.append(four_space+s+'\n')
             
-        master_string_list.append('\n\n    # bulk diffusion\n')
-        master_string_list.append('\n')
-        #Db
-        for s in diff_regime.Db_strings:
-            master_string_list.append(four_space+s+'\n')
-        # kbb
-        for s in diff_regime.kbb_strings:
-            master_string_list.append(four_space+s+'\n')
+        
         
         master_string_list.append('\n\n    # sorption-static surface layer\n')
         master_string_list.append('\n')
@@ -974,7 +1084,10 @@ class ModelBuilder():
                 if len(self.reaction_scheme.product_stoich) == 0:
                     product_stoich = None
                 else:
-                    product_stoich =  self.reaction_scheme.product_stoich[i]
+                    try:
+                        product_stoich =  self.reaction_scheme.product_stoich[i]
+                    except IndexError:
+                        product_stoich = None
                 
                 
                 # if this component is lost as a reactant
@@ -1242,6 +1355,9 @@ class ModelBuilder():
         
         unpack_params_string_list.append('\n    #--------------Unpack parameters (random order)---------------\n')
         
+        # add k_surf scale factor to req_params if desired
+        if use_scaled_k_surf:
+            self.req_params.add('scale_bulk_to_surf')
         
         # need the scale_bulk_to_surf defined first, order of rest does not matter
         # if k_surf to be defined explicitly, do not use scale_bulk_to_surf
@@ -1258,12 +1374,18 @@ class ModelBuilder():
         list_req_params = list(self.req_params)
         # unpacking parameter values from dict of Parameter objects
         unpack_params_string_list.append('\n    try:')
+        count = 0
         for param_str in list_req_params:
+            # add scale_bulk_to_surf if desired
+            if count == 0 and use_scaled_k_surf == True:
+                unpack_params_string_list.append('\n        scale_bulk_to_surf = param_dict["scale_bulk_to_surf"].value')
+                count += 1
             
             param_unpack_str = '\n        ' + param_str + ' = param_dict[' + '"' + param_str + '"].value'
             # add in if varying param == True
             
-            unpack_params_string_list.append(param_unpack_str)
+            if param_str != 'scale_bulk_to_surf': # don't duplicate this param
+                unpack_params_string_list.append(param_unpack_str)
             
             # convert to surface reaction rates from bulk reaction rates
             if 'k_' in param_str and '_surf' not in param_str:
@@ -1278,12 +1400,18 @@ class ModelBuilder():
                 
         # unpacking parameter values from dict of non-Parameter objects (they would throw an attribute error)
         unpack_params_string_list.append('\n\n    except AttributeError:')
+        count = 0
         for param_str in list_req_params:
+            # add scale_bulk_to_surf if desired
+            if count == 0 and use_scaled_k_surf == True:
+                unpack_params_string_list.append('\n        scale_bulk_to_surf = param_dict["scale_bulk_to_surf"]')
+                count += 1
             
             param_unpack_str = '\n        ' + param_str + ' = param_dict[' + '"' + param_str + '"]'
             # add in if varying param == True
             
-            unpack_params_string_list.append(param_unpack_str)
+            if param_str != 'scale_bulk_to_surf': # don't duplicate this param
+                unpack_params_string_list.append(param_unpack_str)
             
             # convert to surface reaction rates from bulk reaction rates
             if 'k_' in param_str and '_surf' not in param_str:
@@ -1321,25 +1449,22 @@ class ModelBuilder():
         self.constructed = True
                
            
-                
-       
-    def __call__(self):
-        '''
-        XXX
-     
-        Returns
-        -------
-        None.
-     
-        '''
-        # validate, check req_params are in the param dicts of the corresponding
-        # ModelComponent objects
-        # create param_dict, user warning to provide param_dict#
-        
+               
    
 class Parameter():
     '''
     A class which will define a parameter object.
+    
+    Parameters
+    ----------
+    value : float
+        The numerical value of the parameter
+    name : str
+        The name of the parameter.
+    bounds : tup or list
+        A tuple or list defining the lower and upper bounds for the parameter.
+    vary : bool
+        Whether this parameter is to vary during model optimisation.
     '''
     def __init__(self, value=np.inf, name=None,bounds=None, vary=False):
         
