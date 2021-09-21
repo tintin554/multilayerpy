@@ -34,7 +34,7 @@ import time
 import scipy
 from scipy import integrate
 import matplotlib.pyplot as plt
-from kmsub_model_build import Parameter
+from multilayerpy.kmsub_model_build import Parameter
 
 
 class Simulate():
@@ -427,7 +427,7 @@ class Simulate():
         mod_comps = self.model.model_components
         
         # plot surface concentrations
-        plt.figure()
+        fig = plt.figure()
         
         if mod_type == 'km-sub':
             plt.title('Surface concentrations',fontsize='large')
@@ -529,12 +529,14 @@ class Simulate():
                 plt.legend()
                 plt.tight_layout()
                 plt.show()
+                
+        return fig
             
         
     def plot_bulk_concs(self,cmap='viridis'):
         '''
         Plots heatmaps of the bulk concentration of each model component.
-        y-axis is layer number, x-axis is time (s)
+        y-axis is layer number, x-axis is timepoint
         
         Parameters
         ----------
@@ -828,7 +830,6 @@ def make_layers(model_type,n_layers,bulk_radius):
         Number of model bulk layers.
     bulk_radius : float
         The bulk radius (in cm) of the particle or film thickness.
-    n_components : int, optional
     
     returns
     ----------
