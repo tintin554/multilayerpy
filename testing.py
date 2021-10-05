@@ -7,10 +7,10 @@ Created on Fri Sep 17 13:55:44 2021
 
 import unittest
 
-from multilayerpy.kmsub_model_build import ModelType, ReactionScheme, DiffusionRegime, ModelComponent, ModelBuilder, Parameter
+from multilayerpy.build import ModelType, ReactionScheme, DiffusionRegime, ModelComponent, ModelBuilder, Parameter
 from multilayerpy.simulate import Simulate, make_layers, initial_concentrations
 import numpy as np
-
+import matplotlib.pyplot as plt
 
 class TestModelConstruction(unittest.TestCase):
     
@@ -150,6 +150,16 @@ class TestModelConstruction(unittest.TestCase):
         data = sim.xy_data_total_number()
         test_data = np.genfromtxt('unittest_data.txt')
         comp_bool_array = data == test_data
+        
+        plt.figure()
+        plt.title('Testing KM-SUB')
+        plt.plot(test_data[:,0],test_data[:,1],label='truth',lw=5,color=(1,0,0,0.4))
+        plt.plot(data[:,0],data[:,1],label='unit test',ls='--',color='b')
+        plt.xlabel('Time / s')
+        plt.ylabel('Number of oleic acid molecules')
+        plt.legend()
+        plt.show()
+        
         self.assertEqual(comp_bool_array.all(), True)
 
 if __name__ == "__main__":

@@ -34,7 +34,7 @@ import time
 import scipy
 from scipy import integrate
 import matplotlib.pyplot as plt
-from multilayerpy.kmsub_model_build import Parameter
+from multilayerpy.build import Parameter
 
 
 class Simulate():
@@ -96,8 +96,8 @@ class Simulate():
                 self.parameters[par] = Parameter(value)
         
         self.data = data
-        if type(self.data) != type(None):
-            self.data = Data(data,norm=True)
+        if type(self.data) != type(None) and type(self.data) != Data:
+            self.data = Data(data)
         
         self._dydt = None
         
@@ -500,8 +500,12 @@ class Simulate():
                     plt.errorbar(data[:,0],data[:,1],yerr=data[:,2]/max(data[:,1]),mfc='none',
                                  mec='k',linestyle='none',label='data',marker='o',color='k')
                 else:
-                    plt.errorbar(data[:,0],data[:,1],yerr=data[:,2],mfc='none',
-                             mec='k',linestyle='none',label='data',marker='o',color='k')
+                   
+                    plt.errorbar(data.x,data._unnorm_y,yerr=data._unnorm_y_err,mfc='none',
+                         mec='k',linestyle='none',label='data',marker='o',color='k')
+                    # else:
+                    #     plt.errorbar(data[:,0],data[:,1],yerr=data[:,2],mfc='none',
+                    #              mec='k',linestyle='none',label='data',marker='o',color='k')
         
             plt.xlabel('Time')
             plt.legend()
@@ -510,12 +514,17 @@ class Simulate():
         except:
             try: 
                 if norm:
-                    
-                    plt.errorbar(data.x,data.y,yerr=data.y_err/max(data.y),mfc='none',
-                                 mec='k',linestyle='none',label='data',marker='o',color='k')
+                    if data._normed == True:
+                        plt.errorbar(data.x,data.y,yerr=data.y_err/max(data.y),mfc='none',
+                                     mec='k',linestyle='none',label='data',marker='o',color='k')
+                    else:
+                        data.norm(data.norm_index)
+                        plt.errorbar(data.x,data.y,yerr=data.y_err/max(data.y),mfc='none',
+                                     mec='k',linestyle='none',label='data',marker='o',color='k')
+                        data.unnorm()
                     
                 else:
-                    plt.errorbar(data.x,data.y,yerr=data.y_err,mfc='none',
+                    plt.errorbar(data.x,data._unnorm_y,yerr=data._unnorm_y_err,mfc='none',
                              mec='k',linestyle='none',label='data',marker='o',color='k')
                 
                 plt.xlabel('Time')
@@ -530,7 +539,7 @@ class Simulate():
                 plt.tight_layout()
                 plt.show()
                 
-        return fig
+        #return fig
             
         
     def plot_bulk_concs(self,cmap='viridis'):
@@ -929,20 +938,54 @@ class Data():
     
     def __init__(self,data,n_skipped_rows=0,norm=False,norm_index=0):
         
+        
+        self._normed=False
+        self.norm_index = norm_index
+        
         # if a filename string is supplied, read in the data as an array
         if type(data) == str:
             data = np.genfromtxt(data,skip_header=n_skipped_rows)
             
         self.x = data[:,0]
         self.y = data[:,1]
-        self.y_err = np.zeros(len(self.y))
-        
-        nrows, ncols = data.shape
-        if ncols == 3:
+        # include errors if available
+        try:
             self.y_err = data[:,2]
+            self._unnorm_y_err = data[:,2]
+        except IndexError:
+            self.y_err = np.zeros(len(self.y))
+            self._unnorm_y_err = np.zeros(len(self.y))
+            
+        self._unnorm_y = data[:,1]
+        
+        
+        # nrows, ncols = data.shape
+        # if ncols == 3:
+        #     self.y_err = data[:,2]
             
         if norm == True:
             self.y = self.y / self.y[norm_index]
-            self.y_err = self.y_err / data[:,1][norm_index]
+            self.y_err = self.y_err / self.y[norm_index]
+            self._normed = True
+            
+        
+            
+    def norm(self,norm_index=0):
+        '''
+        Normalise the data
+        '''
+        
+        self.y = self.y / self.y[norm_index]
+        self.y_err = self.y_err / self.y[norm_index]
+        self._normed = True
+        
+    def unnorm(self):
+        '''
+        un-normalise the data
+        '''
+        self.y = self._unnorm_y
+        self.y_err = self._unnorm_y_err
+        self._normed = False
+        
         
 

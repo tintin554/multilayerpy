@@ -27,11 +27,12 @@
 
 
 import numpy as np
-import simulate
+import multilayerpy.simulate as simulate
 import scipy.integrate as integrate
-import kmsub_model_build
+import multilayerpy.build
 import importlib
 from scipy.optimize import differential_evolution, minimize
+from multilayerpy.simulate import Data
 
 
 class Optimizer():
@@ -72,13 +73,14 @@ class Optimizer():
                  param_evolution_func_extra_vary_params=None,lnprior_func=None,
                  lnlike_func=None):
         
+        
         self.simulate = simulate_object
         self.model = simulate_object.model
         
         # make data into a Data object if not already
         data = simulate_object.data
-        if type(data) != simulate.Data:
-            self.data = simulate.Data(data,norm=True)
+        if type(data) != Data:
+            self.data = Data(data,norm=True)
         else:
             self.data = simulate_object.data
         
@@ -96,7 +98,7 @@ class Optimizer():
         self._vary_param_bounds = None
         self._emcee_sampler = None
         
-    def cost_func(self,model_y,rp=False):
+    def cost_func(self,model_y,rp=None):
         '''
         Will calculate the cost function used in the optimisation process. 
         A custom cost function will be used if suppled via the cfunc attribute 
@@ -126,6 +128,11 @@ class Optimizer():
         elif type(model_y) != type(None):
             cost = self.cost
             expt = self.data
+            
+            # normalise the expt data if not already
+            if expt._normed == False:
+                expt.norm(expt.norm_index)
+                
             expt_y = expt.y
         
             if cost == 'MSE':

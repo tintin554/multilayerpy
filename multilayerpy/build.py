@@ -50,6 +50,10 @@ class ModelType:
         assert geometry in ['spherical','film']
         
         self.model_type = model_type
+        
+        # make sure the model type is in the accepted list
+        assert self.model_type.lower() in ['km-sub', 'km-gap']
+        
         self.geometry = geometry
         
 
@@ -280,51 +284,104 @@ class ModelComponent:
         if self.reaction_scheme.model_type.model_type.lower() == 'km-sub':
             # define initial strings for each differential equation to be solved
             # remembering Python counts from 0
-            if component_number == 1:
-                self.surf_string = 'dydt[0] = '  
-                self.firstbulk_string = 'dydt[1] = '
-                self.bulk_string = 'dydt[{}*Lorg+{}+i] = '.format(component_number-1,component_number)
-                self.core_string = 'dydt[{}*Lorg+{}] = '.format(component_number,component_number-1)
-            else:
-                self.surf_string = 'dydt[{}*Lorg+{}] = '.format(component_number-1,component_number-1)
-                self.firstbulk_string = 'dydt[{}*Lorg+{}] = '.format(component_number-1,component_number)
-                self.bulk_string = 'dydt[{}*Lorg+{}+i] = '.format(component_number-1,component_number)
-                self.core_string = 'dydt[{}*Lorg+{}] = '.format(component_number,component_number-1)
             
-            # add to initial strings later with info from ReactionScheme
+            cn = self.component_number
             
-            # add mass transport terms to each string
-            
-            #surf transport different for gases and non-volatiles
+            # mass fluxes
             if self.gas == True:
-                if component_number == 1:
-                    self.surf_string += 'kbs_1 * y[1] - ksb_1 * y[0] '
-                    self.firstbulk_string += '(ksb_1 * y[0] - kbs_1 * y[1]) * (A[0]/V[0]) + kbbx_1[0] * (y[2] - y[1]) * (A[1]/V[0]) '
-                    self.bulk_string += 'kbbx_1[i] * (y[{}*Lorg+{}+(i-1)] - y[{}*Lorg+{}+i]) * (A[i]/V[i]) + kbbx_1[i+1] * (y[{}*Lorg+{}+(i+1)] - y[{}*Lorg+{}+i]) * (A[i+1]/V[i]) '.format(component_number-1,component_number,
-                                               component_number-1,component_number,component_number-1,component_number,component_number-1,component_number)
-                    self.core_string += 'kbbx_1[-1] * (y[{}*Lorg+{}-1] - y[{}*Lorg+{}]) * (A[-1]/V[-1]) '.format(component_number,component_number-1,component_number,component_number-1)
-                else:
-                    self.surf_string += 'kbs_{} * y[{}*Lorg+{}] - ksb_{} * y[{}*Lorg+{}] '.format(component_number,component_number-1,component_number,component_number,component_number-1,component_number-1)
-                    self.firstbulk_string += '(ksb_{} * y[{}*Lorg+{}] - kbs_{} * y[{}*Lorg+{}]) * (A[0]/V[0]) + kbbx_{}[0] * (y[{}*Lorg+{}] - y[{}*Lorg+{}]) * (A[1]/V[0]) '.format(component_number,component_number-1,component_number-1,component_number,
-                                              component_number-1,component_number,component_number,component_number-1,component_number+1,component_number-1,component_number)
-                    self.bulk_string += 'kbbx_{}[i] * (y[{}*Lorg+{}+(i-1)] - y[{}*Lorg+{}+i]) * (A[i]/V[i]) + kbbx_{}[i+1] * (y[{}*Lorg+{}+(i+1)] - y[{}*Lorg+{}+i]) * (A[i+1]/V[i]) '.format(component_number,component_number-1,component_number,
-                                               component_number-1,component_number,component_number,component_number-1,component_number,component_number-1,component_number)
-                    self.core_string += 'kbbx_{}[-1] * (y[{}*Lorg+{}-1] - y[{}*Lorg+{}]) * (A[-1]/V[-1]) '.format(component_number,component_number,component_number-1,component_number,component_number-1)
+                Jsb_str = f'Jsb_{cn} = ksb_{cn} * y[{cn-1}*Lorg+{cn-1}] '
+                Jbs_str = f'Jbs_{cn} = kbs_{cn} * y[{cn-1}*Lorg+{cn}] '
+                Jb1b2_str = f'Jb1b2_{cn} = kbbx_{cn}[0] * (y[{cn-1}*Lorg+{cn}+1] - y[{cn-1}*Lorg+{cn}]) '
+                Jbb_minus1_str = f'Jbb_minus1_{cn} = kbbx_{cn}[i] * (y[{cn-1}*Lorg+{cn}+i-1] - y[{cn-1}*Lorg+{cn}+i]) '
+                Jbb_plus1_str = f'Jbb_plus1_{cn} = kbbx_{cn}[i+1] * (y[{cn-1}*Lorg+{cn}+i+1] - y[{cn-1}*Lorg+{cn}+i]) '
+                Jbb_core_str = f'Jbb_core_{cn} = kbbx_{cn}[-1] * (y[{cn}*Lorg+{cn-1}-1] - y[{cn}*Lorg+{cn-1}]) '
+                
+                collected_mass_transport_strings = [Jsb_str,Jbs_str,Jb1b2_str,
+                                                Jbb_core_str]
+                
+                collected_mass_transport_inloop_strings = [Jbb_minus1_str,Jbb_plus1_str]
+                
             else:
-                if component_number == 1:
-                    self.surf_string += 'kbss_1 * y[1] - kssb_1 * y[0] '
-                    self.firstbulk_string += '(kssb_1 * y[0] - kbss_1 * y[1]) * (A[0]/V[0]) + kbby_1[0] * (y[2] - y[1]) * (A[1]/V[0]) '
-                    self.bulk_string += 'kbby_1[i] * (y[{}*Lorg+{}+(i-1)] - y[{}*Lorg+{}+i]) * (A[i]/V[i]) + kbby_1[i+1] * (y[{}*Lorg+{}+(i+1)] - y[{}*Lorg+{}+i]) * (A[i+1]/V[i]) '.format(component_number-1,component_number,
-                                               component_number-1,component_number,component_number-1,component_number,component_number-1,component_number)
-                    self.core_string += 'kbby_1[-1] * (y[{}*Lorg+{}-1] - y[{}*Lorg+{}]) * (A[-1]/V[-1]) '.format(component_number,component_number-1,component_number,component_number-1)
+                Jssb_str = f'Jssb_{cn} = kssb_{cn} * y[{cn-1}*Lorg+{cn-1}] '
+                Jbss_str = f'Jbss_{cn} = kbss_{cn} * y[{cn-1}*Lorg+{cn}] '
+                Jb1b2_str = f'Jb1b2_{cn} = kbby_{cn}[0] * (y[{cn-1}*Lorg+{cn}+1] - y[{cn-1}*Lorg+{cn}]) '
+                Jbb_minus1_str = f'Jbb_minus1_{cn} = kbby_{cn}[i] * (y[{cn-1}*Lorg+{cn}+i-1] - y[{cn-1}*Lorg+{cn}+i]) '
+                Jbb_plus1_str = f'Jbb_plus1_{cn} = kbby_{cn}[i+1] * (y[{cn-1}*Lorg+{cn}+i+1] - y[{cn-1}*Lorg+{cn}+i]) '
+                Jbb_core_str = f'Jbb_core_{cn} = kbby_{cn}[-1] * (y[{cn}*Lorg+{cn-1}-1] - y[{cn}*Lorg+{cn-1}]) '
+                
+                collected_mass_transport_strings = [Jssb_str,Jbss_str,Jb1b2_str,
+                                                Jbb_core_str]
+                
+                collected_mass_transport_inloop_strings = [Jbb_minus1_str,Jbb_plus1_str]
+
+            for mass_transport_term in collected_mass_transport_strings: 
+                self.mass_transport_rate_strings.append(mass_transport_term)
+                
+            for mass_transport_loop_term in collected_mass_transport_inloop_strings:
+                self.mass_transport_rate_inloop_strings.append(mass_transport_loop_term)
+            
+            
+            # if component_number == 1:
+            #     self.surf_string = 'dydt[0] = '  
+            #     self.firstbulk_string = 'dydt[1] = '
+            #     self.bulk_string = 'dydt[{}*Lorg+{}+i] = '.format(component_number-1,component_number)
+            #     self.core_string = 'dydt[{}*Lorg+{}] = '.format(component_number,component_number-1)
+            #else:
+                
+            # self.surf_string = 'dydt[{}*Lorg+{}] = '.format(component_number-1,component_number-1)
+            # self.firstbulk_string = 'dydt[{}*Lorg+{}] = '.format(component_number-1,component_number)
+            # self.bulk_string = 'dydt[{}*Lorg+{}+i] = '.format(component_number-1,component_number)
+            # self.core_string = 'dydt[{}*Lorg+{}] = '.format(component_number,component_number-1)
+            
+            self.surf_string = f'dydt[{cn-1}*Lorg+{cn-1}] = '
+            self.firstbulk_string = f'dydt[{cn-1}*Lorg+{cn}] = ' 
+            self.bulk_string = f'dydt[{cn-1}*Lorg+{cn}+i] = '
+            self.core_string = f'dydt[{cn}*Lorg+{cn-1}] = '
+            
+            # add mass transport to component strings
+            
+            if self.gas == True:
+                self.surf_string += f'Jbs_{cn} - Jsb_{cn} '
+                self.firstbulk_string += f'(Jsb_{cn} - Jbs_{cn}) * (A[0]/V[0]) + Jb1b2_{cn} * (A[1]/V[0]) '
+                self.bulk_string += f'Jbb_minus1_{cn} * (A[i]/V[i]) + Jbb_plus1_{cn} * (A[i+1]/V[i]) '
+                self.core_string += f'Jbb_core_{cn} * (A[-1]/V[-1]) '
+                
+            else:
+                self.surf_string += f'Jbss_{cn} - Jssb_{cn} '
+                self.firstbulk_string += f'(Jssb_{cn} - Jbss_{cn}) * (A[0]/V[0]) + Jb1b2_{cn} * (A[1]/V[0]) '
+                self.bulk_string += f'Jbb_minus1_{cn} * (A[i]/V[i]) + Jbb_plus1_{cn} * (A[i+1]/V[i]) '
+                self.core_string += f'Jbb_core_{cn} * (A[-1]/V[-1]) '
+            
+            
+            # if self.gas == True:
+            #     if component_number == 1:
+            #         self.surf_string += 'kbs_1 * y[1] - ksb_1 * y[0] '
+            #         self.firstbulk_string += '(ksb_1 * y[0] - kbs_1 * y[1]) * (A[0]/V[0]) + kbbx_1[0] * (y[2] - y[1]) * (A[1]/V[0]) '
+            #         self.bulk_string += 'kbbx_1[i] * (y[{}*Lorg+{}+(i-1)] - y[{}*Lorg+{}+i]) * (A[i]/V[i]) + kbbx_1[i+1] * (y[{}*Lorg+{}+(i+1)] - y[{}*Lorg+{}+i]) * (A[i+1]/V[i]) '.format(component_number-1,component_number,
+            #                                    component_number-1,component_number,component_number-1,component_number,component_number-1,component_number)
+            #         self.core_string += 'kbbx_1[-1] * (y[{}*Lorg+{}-1] - y[{}*Lorg+{}]) * (A[-1]/V[-1]) '.format(component_number,component_number-1,component_number,component_number-1)
+            #     else:
+            #         self.surf_string += 'kbs_{} * y[{}*Lorg+{}] - ksb_{} * y[{}*Lorg+{}] '.format(component_number,component_number-1,component_number,component_number,component_number-1,component_number-1)
+            #         self.firstbulk_string += '(ksb_{} * y[{}*Lorg+{}] - kbs_{} * y[{}*Lorg+{}]) * (A[0]/V[0]) + kbbx_{}[0] * (y[{}*Lorg+{}] - y[{}*Lorg+{}]) * (A[1]/V[0]) '.format(component_number,component_number-1,component_number-1,component_number,
+            #                                   component_number-1,component_number,component_number,component_number-1,component_number+1,component_number-1,component_number)
+            #         self.bulk_string += 'kbbx_{}[i] * (y[{}*Lorg+{}+(i-1)] - y[{}*Lorg+{}+i]) * (A[i]/V[i]) + kbbx_{}[i+1] * (y[{}*Lorg+{}+(i+1)] - y[{}*Lorg+{}+i]) * (A[i+1]/V[i]) '.format(component_number,component_number-1,component_number,
+            #                                    component_number-1,component_number,component_number,component_number-1,component_number,component_number-1,component_number)
+            #         self.core_string += 'kbbx_{}[-1] * (y[{}*Lorg+{}-1] - y[{}*Lorg+{}]) * (A[-1]/V[-1]) '.format(component_number,component_number,component_number-1,component_number,component_number-1)
+            # else:
+            #     if component_number == 1:
+            #         self.surf_string += 'kbss_1 * y[1] - kssb_1 * y[0] '
+            #         self.firstbulk_string += '(kssb_1 * y[0] - kbss_1 * y[1]) * (A[0]/V[0]) + kbby_1[0] * (y[2] - y[1]) * (A[1]/V[0]) '
+            #         self.bulk_string += 'kbby_1[i] * (y[{}*Lorg+{}+(i-1)] - y[{}*Lorg+{}+i]) * (A[i]/V[i]) + kbby_1[i+1] * (y[{}*Lorg+{}+(i+1)] - y[{}*Lorg+{}+i]) * (A[i+1]/V[i]) '.format(component_number-1,component_number,
+            #                                    component_number-1,component_number,component_number-1,component_number,component_number-1,component_number)
+            #         self.core_string += 'kbby_1[-1] * (y[{}*Lorg+{}-1] - y[{}*Lorg+{}]) * (A[-1]/V[-1]) '.format(component_number,component_number-1,component_number,component_number-1)
                     
-                else:
-                    self.surf_string += 'kbss_{} * y[{}*Lorg+{}] - kssb_{} * y[{}*Lorg+{}] '.format(component_number,component_number-1,component_number,component_number,component_number-1,component_number-1)
-                    self.firstbulk_string += '(kssb_{} * y[{}*Lorg+{}] - kbss_{} * y[{}*Lorg+{}]) * (A[0]/V[0]) + kbby_{}[0] * (y[{}*Lorg+{}] - y[{}*Lorg+{}]) * (A[1]/V[0]) '.format(component_number,component_number-1,component_number-1,component_number,
-                                              component_number-1,component_number,component_number,component_number-1,component_number+1,component_number-1,component_number)
-                    self.bulk_string += 'kbby_{}[i] * (y[{}*Lorg+{}+(i-1)] - y[{}*Lorg+{}+i]) * (A[i]/V[i]) + kbby_{}[i+1] * (y[{}*Lorg+{}+(i+1)] - y[{}*Lorg+{}+i]) * (A[i+1]/V[i]) '.format(component_number,component_number-1,component_number,
-                                               component_number-1,component_number,component_number,component_number-1,component_number,component_number-1,component_number)
-                    self.core_string += 'kbby_{}[-1] * (y[{}*Lorg+{}-1] - y[{}*Lorg+{}]) * (A[-1]/V[-1]) '.format(component_number,component_number,component_number-1,component_number,component_number-1)
+            #     else:
+            #         self.surf_string += 'kbss_{} * y[{}*Lorg+{}] - kssb_{} * y[{}*Lorg+{}] '.format(component_number,component_number-1,component_number,component_number,component_number-1,component_number-1)
+            #         self.firstbulk_string += '(kssb_{} * y[{}*Lorg+{}] - kbss_{} * y[{}*Lorg+{}]) * (A[0]/V[0]) + kbby_{}[0] * (y[{}*Lorg+{}] - y[{}*Lorg+{}]) * (A[1]/V[0]) '.format(component_number,component_number-1,component_number-1,component_number,
+            #                                   component_number-1,component_number,component_number,component_number-1,component_number+1,component_number-1,component_number)
+            #         self.bulk_string += 'kbby_{}[i] * (y[{}*Lorg+{}+(i-1)] - y[{}*Lorg+{}+i]) * (A[i]/V[i]) + kbby_{}[i+1] * (y[{}*Lorg+{}+(i+1)] - y[{}*Lorg+{}+i]) * (A[i+1]/V[i]) '.format(component_number,component_number-1,component_number,
+            #                                    component_number-1,component_number,component_number,component_number-1,component_number,component_number-1,component_number)
+            #         self.core_string += 'kbby_{}[-1] * (y[{}*Lorg+{}-1] - y[{}*Lorg+{}]) * (A[-1]/V[-1]) '.format(component_number,component_number,component_number-1,component_number,component_number-1)
                     
                 
         elif self.reaction_scheme.model_type.model_type.lower() == 'km-gap':
@@ -338,6 +395,7 @@ class ModelComponent:
             Jssb_str = f'Jssb_{cn} = kssb_{cn} * (y[{cn-1}*Lorg+2*{cn-1}+1]/A[0]) '
             Jbss_str = f'Jbss_{cn} = kbss_{cn} * (y[{cn-1}*Lorg+2*{cn-1}+2]/V[0]) '
             Jb1b2_str = f'Jb1b2_{cn} = kbb_{cn}[0] * (y[{cn-1}*Lorg+2*{cn-1}+2+1]/V[1] - y[{cn-1}*Lorg+2*{cn-1}+2]/V[0]) '
+            #Jb2b1_str = f'Jb2b1_{cn} = kbb_{cn}[1] * (y[{cn-1}*Lorg+2*{cn-1}+2+1]/V[1] - y[{cn-1}*Lorg+2*{cn-1}+2]/V[0]) '
             Jbb_minus1_str = f'Jbb_minus1_{cn} = kbb_{cn}[i] * (y[{cn-1}*Lorg+{cn}+i+{cn}-1]/V[i-1] - y[{cn-1}*Lorg+{cn}+i+{cn}]/V[i]) '
             Jbb_plus1_str = f'Jbb_plus1_{cn} = kbb_{cn}[i+1] * (y[{cn-1}*Lorg+{cn}+i+{cn}+1]/V[i+1] - y[{cn-1}*Lorg+{cn}+i+{cn}]/V[i])'
             Jbb_core_str = f'Jbb_core_{cn} = kbb_{cn}[-1] * (y[{cn}*Lorg+{cn}+{cn-1}-1]/V[-2] - y[{cn}*Lorg+{cn}+{cn-1}]/V[-1]) '
@@ -1357,10 +1415,10 @@ class ModelBuilder():
                 master_string_list.append(four_space+comp.static_surf_string+'\n')
             master_string_list.append(four_space+comp.firstbulk_string+'\n')
             master_string_list.append(four_space+'for i in np.arange(1,Lorg-1):'+'\n')
-            if mod_type.lower() == 'km-gap':
-                for s in comp.mass_transport_rate_inloop_strings:
-                    master_string_list.append(four_space+four_space+s+'\n')
-                
+            #if mod_type.lower() == 'km-gap':
+            for s in comp.mass_transport_rate_inloop_strings:
+                master_string_list.append(four_space+four_space+s+'\n')
+            
             master_string_list.append(four_space+four_space+comp.bulk_string+'\n')
             master_string_list.append(four_space+comp.core_string+'\n')                     
         
@@ -1441,7 +1499,7 @@ class ModelBuilder():
                 unpack_params_string_list.append(k_surf_string)
                 
         # define the gas constant        
-        unpack_params_string_list.append('\n    R = 82.0578') 
+        unpack_params_string_list.append('\n\n    R = 82.0578') 
         unpack_params_string_list.append('\n    Na = 6.022e23') 
         
         # wrapping up the dydt function
