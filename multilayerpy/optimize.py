@@ -98,7 +98,7 @@ class Optimizer():
         self._vary_param_bounds = None
         self._emcee_sampler = None
         
-    def cost_func(self,model_y,rp=None):
+    def cost_func(self,model_y,rp=None,weighted=False):
         '''
         Will calculate the cost function used in the optimisation process. 
         A custom cost function will be used if suppled via the cfunc attribute 
@@ -124,7 +124,7 @@ class Optimizer():
         if type(self.cfunc) != type(None):
             val = self.cfunc(self.data,model_y,rp=rp)
         
-        # use built-in cost function (MSE)
+        # use built-in cost function (MSE), *future development*
         elif type(model_y) != type(None):
             cost = self.cost
             expt = self.data
@@ -132,22 +132,43 @@ class Optimizer():
             # normalise the expt data if not already
             if expt._normed == False:
                 expt.norm(expt.norm_index)
-                
+            
+            # extract data from expt
             expt_y = expt.y
-        
+            expt_y_err = expt.y_err
+            
+            
             if cost == 'MSE':
+                # non-weighted cost function
+                if np.any(np.isnan(expt_y_err)):
+                    val = (np.square(expt_y-model_y)).mean()
+                    print('if here')
                     
-                val = np.sum((np.square(expt_y-model_y) ** 2)/len(expt_y))
+                # weighted cost function
+                elif weighted == True:
+                    val = ((1.0/expt_y_err**2) * np.square(expt_y-model_y)).mean()
+                    print('elif here')
+                    
+                # ignore weightings even though possible (non-weighted)
+                else:
+                    val = (np.square(expt_y-model_y)).mean()
+                    print('else here')
+                
         else:
             val = 0.0
-                    
+        
+        # fitting to rp            
         if type(rp) != type(None):
-            rp_expt = expt[:,-1] # experimental rp should be final column (in cm)
-            rp_cost_val = np.sum((np.square(rp_expt-rp) ** 2)/len(rp))
+            rp_expt = expt.rp 
+            rp_cost_val = (np.square(rp_expt-rp)).mean(axis=None)
             
+            # return an average cost function value accounting for fit to rp
+            # and data
             if val != 0.0:
                 self.cost_func_val = (val + rp_cost_val) / 2
                 return (val + rp_cost_val) / 2
+            
+            # only fitting to rp
             else:
                 self.cost_func_val = rp_cost_val
                 return rp_cost_val
@@ -174,10 +195,10 @@ class Optimizer():
         data = self.data
         sim = self.simulate
         # check if data have yerrs
-        zero_count = 0
+        nan_count = 0
         for err in data.y_err:
-            if float(err) == 0.0:
-                zero_count += 1
+            if float(err) == np.nan:
+                nan_count += 1
         
         # run the model to get model_y
         vary_param_keys = self._vary_param_keys
@@ -313,7 +334,7 @@ class Optimizer():
         #assert model_output.t == self.data.x, "model and experimental datapoints not equivalent"
         
         # if there are errors, account for them
-        if zero_count == 0:
+        if not np.any(np.isnan(data.y_err)):
             loglike = -np.sum(np.square(((data.y - model_y) / data.y_err))) / 2.0
         else:
             loglike = -np.sum(np.square(data.y - model_y)) / 2.0
@@ -369,13 +390,15 @@ class Optimizer():
         return lp + self.lnlike(vary_params)
         
     
-    def fit(self,method='least_squares',component_no='1',n_workers=1,fit_particle_radius=False):
+    def fit(self,weighted=False,method='least_squares',component_no='1',n_workers=1,fit_particle_radius=False):
         '''
         Use either a local or global optimisation algorithm to fit the model
         to the data. 
 
         Parameters
         ----------
+        weighted : bool, optional
+            Whether to weight the fit to datapoint uncertainties (requires the data to have uncertainties)
         method : str, optional
             Algorithm to be used. 'least_squares' (local) or 'differential_evolution' (global). 
             The default is 'least_squares'.
@@ -534,7 +557,7 @@ class Optimizer():
                 
                 # calculate the cost function
                 
-                cost_val = self.cost_func(norm_number_molecules)
+                cost_val = self.cost_func(norm_number_molecules,weighted=weighted)
             
             elif sim.model.model_type.lower() == 'km-gap':
                 if type(component_no) != type(None):
@@ -598,11 +621,11 @@ class Optimizer():
                     
                     # calculate the cost function
                     
-                    cost_val = self.cost_func(norm_number_molecules)
+                    cost_val = self.cost_func(norm_number_molecules,weighted=weighted)
             
                 # also fit the particle radius with custom cost function (cfunc)
                 if fit_particle_radius:
-                    print('\nFitting to particle radius **CHECK UNITS**\n(should be in cm)\n')
+                    print('\nFitting to particle radius or film thickness **CHECK UNITS**\n(should be in cm)\n')
                     # option to only fit to rp and not number of molecules
                     if type(component_no) == type(None):
                         norm_number_molecules = None
@@ -718,7 +741,7 @@ class Optimizer():
         print(varying_param_keys)
         
         # array of initialised chains centred around the initial guess (small gaussian distribution)
-        p0 = [np.array(varying_params) * np.random.normal(1.0,0.4,len(varying_params)) for i in range(n_walkers)]
+        p0 = [np.array(varying_params) * np.random.normal(1.0,1e-9,len(varying_params)) for i in range(n_walkers)]
 
         import emcee
         

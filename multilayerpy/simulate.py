@@ -99,7 +99,13 @@ class Simulate():
         if type(self.data) != type(None) and type(self.data) != Data:
             self.data = Data(data)
         
-        self._dydt = None
+        
+        # import the model from the .py file created in the model building
+        # process
+        model_import = importlib.import_module(f'{self.model.filename[:-3]}')
+        
+        # save dydt func for picklability 
+        self._dydt = model_import.dydt
         
     def calc_Vt_At_layer_thick(self):
 
@@ -285,17 +291,12 @@ class Simulate():
 
         params = self.parameters
         
-        # import the model from the .py file created in the model building
-        # process
-        model_import = importlib.import_module(f'{self.model.filename[:-3]}')
-        
-        # save dydt func for picklability 
-        self._dydt = model_import.dydt
-        
         # define time interval
         tspan = np.linspace(min(time_span),max(time_span),n_time)
         
         start_int = time.time()
+        
+        # is a parameter evolution function being used? if so, use it
         if type(self.param_evo_func) == type(None):
             model_output = integrate.solve_ivp(lambda t, y:self._dydt(t,y,params,V,A,n_layers,layer_thick),
                                                      (min(time_span),max(time_span)),
@@ -936,7 +937,7 @@ class Data():
         first (0) index unless specified. 
     '''
     
-    def __init__(self,data,n_skipped_rows=0,norm=False,norm_index=0):
+    def __init__(self,data,n_skipped_rows=0,norm=False,norm_index=0,rp_col_num=None):
         
         
         self._normed=False
@@ -948,20 +949,36 @@ class Data():
             
         self.x = data[:,0]
         self.y = data[:,1]
-        # include errors if available
-        try:
-            self.y_err = data[:,2]
-            self._unnorm_y_err = data[:,2]
-        except IndexError:
-            self.y_err = np.zeros(len(self.y))
-            self._unnorm_y_err = np.zeros(len(self.y))
-            
         self._unnorm_y = data[:,1]
         
+        # include errors if available
+        # make sure y_err not same as rp when there is no y_err supplied
+        # and 3rd column (index 2) is rp
+        if rp_col_num == 2:
+            nan_array = np.empty(len(self.y))
+            nan_array[:] = np.nan
+            self.y_err = nan_array
+            self._unnorm_y_err = nan_array
+        else:
+            try:
+                self.y_err = data[:,2]
+                self._unnorm_y_err = data[:,2]
+            except IndexError:
+                nan_array = np.empty(len(self.y))
+                nan_array[:] = np.nan
+                self.y_err = nan_array
+                self._unnorm_y_err = nan_array
+            
         
-        # nrows, ncols = data.shape
-        # if ncols == 3:
-        #     self.y_err = data[:,2]
+        
+        # now assign rp column if available
+        if type(rp_col_num) == int:
+            self.rp = data[:,rp_col_num]
+        else:
+            nan_array = np.empty(len(self.y))
+            nan_array[:] = np.nan
+            self.rp = nan_array
+       
             
         if norm == True:
             self.y = self.y / self.y[norm_index]
