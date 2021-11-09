@@ -142,18 +142,15 @@ class Optimizer():
                 # non-weighted cost function
                 if np.any(np.isnan(expt_y_err)):
                     val = (np.square(expt_y-model_y)).mean()
-                    print('if here')
-                    
+                                        
                 # weighted cost function
                 elif weighted == True:
                     val = ((1.0/expt_y_err**2) * np.square(expt_y-model_y)).mean()
-                    print('elif here')
-                    
+                                        
                 # ignore weightings even though possible (non-weighted)
                 else:
                     val = (np.square(expt_y-model_y)).mean()
-                    print('else here')
-                
+                                    
         else:
             val = 0.0
         
@@ -453,7 +450,8 @@ class Optimizer():
                         param_bounds.append(par.bounds)
             
         def minimize_me(varying_param_vals,varying_param_keys,sim,component_no=component_no,
-                        extra_vary_params_start_ind=extra_vary_params_start_ind,fit_particle_radius=fit_particle_radius):
+                        extra_vary_params_start_ind=extra_vary_params_start_ind,
+                        fit_particle_radius=fit_particle_radius):
             '''
             The function to minimise during the fitting process. 
 

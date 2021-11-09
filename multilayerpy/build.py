@@ -67,18 +67,18 @@ class ReactionScheme:
         Defines the model type necessary for naming conventions.
     name : str
         Name of the reaction scheme
-    reaction_tuple_list : list
+    reactants : list
         List of tuples defining which components react with which.
         
-        e.g. >>> reaction_tuple_list = [(1,2),(1,3)]
+        e.g. >>> reactants = [(1,2),(1,3)]
         
         This states that the first reaction is between component 1 and 2 and 
         the second reaction is between component 1 and 3.
         
-    products_of_reactions_list : list
+    products : list
         List of tuples defining which components are reaction products.
         
-        e.g. >>> products_of_reactions_list = [(3,),(4,)]
+        e.g. >>> products = [(3,),(4,)]
         
         This states that component 3 is a product of reaction 1 and component 4
         is a product of reaction 2.
@@ -87,7 +87,7 @@ class ReactionScheme:
         applied to each reactant. (Optional).
         
         e.g.
-        >>> reaction_tuple_list = [(1,2)]
+        >>> reactants = [(1,2)]
         >>> reactant_stoich = [(0.5,1.0)]
         
         This states that for reaction 1, reactant 1 reacts with reactant 2 and
@@ -97,7 +97,7 @@ class ReactionScheme:
         applied to each product. (Optional).
         
         e.g.
-        >>> products_of_reactions_list = [(3,4)]
+        >>> products = [(3,4)]
         >>> reactant_stoich = [(0.5,0.5)]
         
         This states that for reaction 1, the products 3 and 4 have stoichiometric
@@ -106,7 +106,7 @@ class ReactionScheme:
     '''
     
     def __init__(self,model_type_object,name='rxn_scheme',
-                 reaction_tuple_list=[],products_of_reactions_list=[],
+                 reactants=[],products=[],
                  reactant_stoich=[], product_stoich=[]):
         
         # model type
@@ -120,11 +120,11 @@ class ReactionScheme:
     
         # tuple of component reactions e.g. (1,2) means component 1 reacts with 2
         # for first order decay, e.g. (1,0) means component 1 decays first order
-        self.reaction_tuples = reaction_tuple_list #*error if: not tuple list, same rxn more than once and len != n_components
+        self.reaction_reactants = reactants #*error if: not tuple list, same rxn more than once and len != n_components
         
         # check same reaction is not repeated
         # tuple list of which components are produced from each reaction
-        self.reaction_products = products_of_reactions_list # * error if None and len != n_components
+        self.reaction_products = products # * error if None and len != n_components
         
         self.reactant_stoich = reactant_stoich
         
@@ -142,7 +142,7 @@ class ReactionScheme:
             
         # check n_components = number of unique numbers in rxn & prod. tuples
         unique_comps = set([])
-        for tup in self.reaction_tuples:
+        for tup in self.reaction_reactants:
             x, y = tup
             # add component numbers to unique comps set
             unique_comps.add(x)
@@ -207,9 +207,9 @@ class ReactionScheme:
                    'Model type: ' + self.model_type.model_type,
                    '** No stoichiometry shown **',
                    ]
-        for i in range(len(self.reaction_tuples)):
+        for i in range(len(self.reaction_reactants)):
             s = f'R{i+1}: '
-            for comp_no in self.reaction_tuples[i]:
+            for comp_no in self.reaction_reactants[i]:
                 if len(s) < 5:
                     s += f'{comp_no} '
                 else:
@@ -548,7 +548,7 @@ class DiffusionRegime():
                
                 
                 # vignes diffusion
-                elif self.regime == 'vignes':
+                elif self.regime.lower() == 'vignes':
                     # initially dependent on D_comp in pure comp
                     # raised to the power of fraction of component
                     Db_string = f'Db_{i+1}_arr = (Db_{i+1}_arr**fb_{i+1}) '
@@ -571,8 +571,8 @@ class DiffusionRegime():
                     
                     
                         
-                # km-sub combination
-                elif self.regime == 'fractional':
+                # km-sub Darken linear combination
+                elif self.regime.lower() == 'darken':
                     # initially dependent on D_comp in pure comp
                     # multiply by fraction of component
                     Db_string = f'Db_{i+1}_arr = (Db_{i+1}_arr * fb_{i+1}_arr) '
@@ -799,14 +799,16 @@ class ModelBuilder():
         self.req_params.add('T')
         
         heading_strings = ['###############################################\n',
-                           f'#A {mod_type} model constructed using MultilayerPy\n',
+                           f'# A {mod_type} model constructed using MultilayerPy\n',
+                           '# MultilayerPy - build, run and optimise kinetic multi-layer models for\naerosol particles and films.\n',
+                           '# MultilayerPy is released under the GNU General Public License v3.0\n',
                            '\n',
-                           f'#Created {date}\n',
+                           f'# Created {date}\n',
                            '\n',
-                           f'#Reaction name: {rxn_name}\n',
-                           f'#Geometry: {self.geometry}\n',
-                           f'#Number of model components: {len(self.model_components)}\n',
-                           f'#Diffusion regime: {self.diffusion_regime.regime}\n',
+                           f'# Reaction name: {rxn_name}\n',
+                           f'# Geometry: {self.geometry}\n',
+                           f'# Number of model components: {len(self.model_components)}\n',
+                           f'# Diffusion regime: {self.diffusion_regime.regime}\n',
                            '###############################################\n',
                            '\n',
                            'import numpy as np']
@@ -1141,8 +1143,8 @@ class ModelBuilder():
         for comp in mod_comps.values():
             
             # for each reaction (reactants and products)
-            for i in np.arange(len(self.reaction_scheme.reaction_tuples)):
-                reactants = self.reaction_scheme.reaction_tuples[i]
+            for i in np.arange(len(self.reaction_scheme.reaction_reactants)):
+                reactants = self.reaction_scheme.reaction_reactants[i]
                 
                 # if no products given in product list, default to the empty reaction products list
                 try:
