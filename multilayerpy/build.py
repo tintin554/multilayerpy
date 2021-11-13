@@ -800,7 +800,7 @@ class ModelBuilder():
         
         heading_strings = ['###############################################\n',
                            f'# A {mod_type} model constructed using MultilayerPy\n',
-                           '# MultilayerPy - build, run and optimise kinetic multi-layer models for\naerosol particles and films.\n',
+                           '# MultilayerPy - build, run and optimise kinetic multi-layer models for\n# aerosol particles and films.\n\n',
                            '# MultilayerPy is released under the GNU General Public License v3.0\n',
                            '\n',
                            f'# Created {date}\n',

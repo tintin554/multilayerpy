@@ -44,15 +44,15 @@ class TestModelConstruction(unittest.TestCase):
         # test failure when repeated reactants in reaction
         with self.assertRaises(AssertionError):
             rs = ReactionScheme(mod_type, 
-                              reaction_tuple_list = react_tup_list_wrong,
-                              products_of_reactions_list = prod_tup_list,
+                              reactants = react_tup_list_wrong,
+                              products = prod_tup_list,
                               product_stoich = prod_stoich)
         
         # test failure when repeated products
         with self.assertRaises(AssertionError):
             rs = ReactionScheme(mod_type, 
-                              reaction_tuple_list = react_tup_list,
-                              products_of_reactions_list = prod_tup_wrong,
+                              reactants = react_tup_list,
+                              products = prod_tup_wrong,
                               product_stoich = prod_stoich)
             
     def test_modelcomponent(self):
@@ -68,17 +68,17 @@ class TestModelConstruction(unittest.TestCase):
                          (7,)]
         
         rs = ReactionScheme(mod_type, 
-                              reaction_tuple_list = react_tup_list,
-                              products_of_reactions_list = prod_tup_list,
+                              reactants = react_tup_list,
+                              products = prod_tup_list,
                               )
         
         model_comp = ModelComponent(1,rs,name='component',gas=False)
         
         # make sure types not changed when instantiated 
-        self.assertEqual(type(model_comp.component_number), int)
-        self.assertEqual(type(model_comp.reaction_scheme.model_type), ModelType)
-        self.assertEqual(type(model_comp.gas), bool)
-        self.assertEqual(type(model_comp.gas), bool)
+        self.assertEqual(type(model_comp.component_number), int, 'Model component number did not return an int')
+        self.assertEqual(type(model_comp.reaction_scheme.model_type), ModelType,'ModelComponent.ReactionScheme.model_type was not a ModelType object')
+        self.assertEqual(type(model_comp.gas), bool, 'ModelComponent.gas was not a boolean')
+        self.assertEqual(type(model_comp.comp_dependent_adsorption), bool, 'ModelComponent.comp_dependent_adsorption is not a boolean')
         
         # make sure all strings are actually strings
         for attrib in dir(model_comp):
@@ -99,8 +99,8 @@ class TestModelConstruction(unittest.TestCase):
                          (7,)]
         
         rs = ReactionScheme(mod_type, 
-                              reaction_tuple_list = react_tup_list,
-                              products_of_reactions_list = prod_tup_list,
+                              reactants = react_tup_list,
+                              products = prod_tup_list,
                               )
         
         OA = ModelComponent(1,rs,name='oleic acid')
@@ -149,7 +149,7 @@ class TestModelConstruction(unittest.TestCase):
         
         data = sim.xy_data_total_number()
         test_data = np.genfromtxt('unittest_data.txt')
-        comp_bool_array = data == test_data
+        #comp_bool_array = data == test_data
         
         plt.figure()
         plt.title('Testing KM-SUB')
@@ -160,7 +160,24 @@ class TestModelConstruction(unittest.TestCase):
         plt.legend()
         plt.show()
         
-        self.assertEqual(comp_bool_array.all(), True)
+        # check that output is within 0.01% of test data output
+        precision = 0.0001
+        violation = False
+        for i in range(len(test_data)):
+            test_datapoint = test_data[i,1]
+            unittest_datapoint = data[i,1]
+            
+            one_percent_bound = test_datapoint * 0.0001
+            
+            ub, lb = test_datapoint + one_percent_bound, test_datapoint - one_percent_bound
+        
+            if unittest_datapoint < ub and unittest_datapoint > lb:
+                continue
+            else:
+                violation = False
+        
+        #self.assertEqual(comp_bool_array.all(), True)
+        self.assertEqual(violation, False,'Unit test model outut not equal to test data within the required precision of {} %'.format(precision * 100))
 
 if __name__ == "__main__":
     unittest.main()
