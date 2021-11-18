@@ -53,7 +53,7 @@ class Simulate():
         Experimental data for use during model optimisation. 
     '''
     
-    def __init__(self, model, params_dict, data=None):
+    def __init__(self, model, params_dict, data=None, custom_model_y_func=None):
         
         # if Y0 == no_components, assume same for all
         # elif it is == Lorg * n_comp + n_comp, use as-is
@@ -85,6 +85,7 @@ class Simulate():
         self.optimisation_result = None
         self.param_evo_func = None
         self.param_evo_additional_params = None
+        self.custom_model_y_func = custom_model_y_func
         
         # convert parameter dictionary values to Parameter objects if they are not
         # this will help with using the Optimizer
@@ -480,9 +481,24 @@ class Simulate():
                 total_no = surf_no + tot_bulk_no + stat_surf_no                  
                 
                 if norm:
-                    plt.plot(self.model_output.t,total_no/max(total_no),label=comp_name)
+                    if type(self.custom_model_y_func) != type(None):
+                        if mod_type == 'km-sub':
+                            model_y = self.custom_model_y_func(self.bulk_concs,self.surf_concs,self.run_params['V'],self.run_params['A'])
+                        elif mod_type == 'km-gap':
+                            model_y = self.custom_model_y_func(self.bulk_concs,self.surf_concs,self.static_surf_concs,Vt,At)
+                        plt.plot(self.model_output.t,model_y/max(model_y),label='model output')
+                    else:
+                        plt.plot(self.model_output.t,total_no/max(total_no),label=comp_name)
                 else:
-                    plt.plot(self.model_output.t,total_no,label=comp_name)
+                    if type(self.custom_model_y_func) != type(None):
+                        if mod_type == 'km-sub':
+                                model_y = self.custom_model_y_func(self.bulk_concs,self.surf_concs,self.run_params['V'],self.run_params['A'])
+                        elif mod_type == 'km-gap':
+                            model_y = self.custom_model_y_func(self.bulk_concs,self.surf_concs,self.static_surf_concs,Vt,At)
+                            
+                        plt.plot(self.model_output.t,model_y,label='model output')
+                    else:
+                        plt.plot(self.model_output.t,total_no,label=comp_name)
                 
         if norm:
             plt.ylabel('[component] / [component]$_{max}$',fontsize='large')

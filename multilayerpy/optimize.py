@@ -71,7 +71,7 @@ class Optimizer():
     
     def __init__(self,simulate_object,cost='MSE',cfunc=None,param_evolution_func=None,
                  param_evolution_func_extra_vary_params=None,lnprior_func=None,
-                 lnlike_func=None):
+                 lnlike_func=None,custom_model_y_func=None):
         
         
         self.simulate = simulate_object
@@ -91,6 +91,7 @@ class Optimizer():
         self.param_evolution_func_extra_vary_params = param_evolution_func_extra_vary_params
         self.lnprior_func = lnlike_func
         self.lnlike_func = lnlike_func
+        self.custom_model_y_func = simulate_object.custom_model_y_func
         
         self._vary_param_keys = None
         self._extra_vary_params_start_ind = None
@@ -222,7 +223,7 @@ class Optimizer():
         
         # import the model from the .py file created in the model building
         # process
-        model_import = importlib.import_module(f'{self.model.filename[:-3]}')
+        model_import = importlib.import_module(f'{self.model.filename[:-3]}') #XXX
             
         # define time interval
         tspan = np.linspace(min(time_span),max(time_span),n_time)
@@ -268,8 +269,12 @@ class Optimizer():
             bulk_total_num = np.sum(bulk_num,axis=1)
             total_number_molecules = bulk_total_num + surf_num + static_surf_num
             
-            # the data is normalised, so model output will be normalised 
-            model_y = total_number_molecules / total_number_molecules[0]
+            # use custom model y function if supplied
+            if type(self.custom_model_y_func) != type(None):
+                model_y = self.custom_model_y_func(bulk_concs,surf_concs,V,A)
+            else:
+                # the data is normalised, so model output will be normalised 
+                model_y = total_number_molecules / total_number_molecules[0]
             
         elif sim.model.model_type.lower() == 'km-gap':
             if type(self._fitting_component_no) != type(None):
@@ -325,8 +330,12 @@ class Optimizer():
                 bulk_total_num = np.sum(bulk_num,axis=1)
                 total_number_molecules = bulk_total_num + surf_num + static_surf_num
                 
-                # the data is normalised, so model output will be normalised 
-                model_y = total_number_molecules / total_number_molecules[0]
+                # use custom model y function if supplied
+                if type(self.custom_model_y_func) != type(None):
+                    model_y = self.custom_model_y_func(bulk_concs,surf_concs,static_surf_concs,V_t,A_t)
+                else:
+                    # the data is normalised, so model output will be normalised 
+                    model_y = total_number_molecules / total_number_molecules[0]
         
         #assert model_output.t == self.data.x, "model and experimental datapoints not equivalent"
         
@@ -550,12 +559,16 @@ class Optimizer():
                 bulk_total_num = np.sum(bulk_num,axis=1)
                 total_number_molecules = bulk_total_num + surf_num + static_surf_num
                 
-                # the data is normalised, so model output will be normalised 
-                norm_number_molecules = total_number_molecules / total_number_molecules[0]
+                # use custom model y function if supplied
+                if type(self.custom_model_y_func) != type(None):
+                    model_y = self.custom_model_y_func(bulk_concs,surf_concs,V,A)
+                else:
+                    # the data is normalised, so model output will be normalised 
+                    model_y = total_number_molecules / total_number_molecules[0]
                 
                 # calculate the cost function
                 
-                cost_val = self.cost_func(norm_number_molecules,weighted=weighted)
+                cost_val = self.cost_func(model_y,weighted=weighted)
             
             elif sim.model.model_type.lower() == 'km-gap':
                 if type(component_no) != type(None):
@@ -614,12 +627,16 @@ class Optimizer():
                     bulk_total_num = np.sum(bulk_num,axis=1)
                     total_number_molecules = bulk_total_num + surf_num + static_surf_num
                     
-                    # the data is normalised, so model output will be normalised 
-                    norm_number_molecules = total_number_molecules / total_number_molecules[0]
-                    
+                    # use custom model y function if supplied
+                    if type(self.custom_model_y_func) != type(None):
+                        model_y = self.custom_model_y_func(bulk_concs,surf_concs,static_surf_concs,V_t,A_t)
+                    else:
+                        # the data is normalised, so model output will be normalised 
+                        model_y = total_number_molecules / total_number_molecules[0]
+                        
                     # calculate the cost function
                     
-                    cost_val = self.cost_func(norm_number_molecules,weighted=weighted)
+                    cost_val = self.cost_func(model_y,weighted=weighted)
             
                 # also fit the particle radius with custom cost function (cfunc)
                 if fit_particle_radius:
