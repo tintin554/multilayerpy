@@ -464,7 +464,7 @@ class Simulate():
         
         # make a matrix of volume values
         #vol_matrix = np.ones(bulk_concs[0].shape) * self.run_params['V']
-        
+        custom_y_plotted = False
         for i in range(n_comps):
             if comp_number == 'all' or i+1 == comp_number:
                 comp_name = mod_comps[f'{i+1}'].name
@@ -481,18 +481,21 @@ class Simulate():
                 total_no = surf_no + tot_bulk_no + stat_surf_no                  
                 
                 if norm:
-                    if type(self.custom_model_y_func) != type(None):
+                    if type(self.custom_model_y_func) != type(None) and custom_y_plotted == False:
                         if mod_type == 'km-sub':
                             model_y = self.custom_model_y_func(self.bulk_concs,self.surf_concs,self.run_params['V'],self.run_params['A'])
+                            custom_y_plotted = True
                         elif mod_type == 'km-gap':
                             model_y = self.custom_model_y_func(self.bulk_concs,self.surf_concs,self.static_surf_concs,Vt,At)
+                            custom_y_plotted = True
                         plt.plot(self.model_output.t,model_y/max(model_y),label='model output')
                     else:
                         plt.plot(self.model_output.t,total_no/max(total_no),label=comp_name)
                 else:
-                    if type(self.custom_model_y_func) != type(None):
+                    if type(self.custom_model_y_func) != type(None) and custom_y_plotted == False:
                         if mod_type == 'km-sub':
                                 model_y = self.custom_model_y_func(self.bulk_concs,self.surf_concs,self.run_params['V'],self.run_params['A'])
+                                custom_y_plotted = True
                         elif mod_type == 'km-gap':
                             model_y = self.custom_model_y_func(self.bulk_concs,self.surf_concs,self.static_surf_concs,Vt,At)
                             
