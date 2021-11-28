@@ -33,6 +33,7 @@ import multilayerpy.build
 import importlib
 from scipy.optimize import differential_evolution, minimize
 from multilayerpy.simulate import Data
+import emcee
 
 
 class Optimizer():
@@ -758,7 +759,6 @@ class Optimizer():
         # array of initialised chains centred around the initial guess (small gaussian distribution)
         p0 = [np.array(varying_params) * np.random.normal(1.0,1e-9,len(varying_params)) for i in range(n_walkers)]
 
-        import emcee
         
         # run the model with 
         

@@ -174,7 +174,7 @@ class TestModelConstruction(unittest.TestCase):
             if unittest_datapoint < ub and unittest_datapoint > lb:
                 continue
             else:
-                violation = False
+                violation = True
         
         #self.assertEqual(comp_bool_array.all(), True)
         self.assertEqual(violation, False,'Unit test model outut not equal to test data within the required precision of {} %'.format(precision * 100))
