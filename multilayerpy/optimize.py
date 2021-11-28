@@ -100,7 +100,7 @@ class Optimizer():
         self._vary_param_bounds = None
         self._emcee_sampler = None
         
-    def cost_func(self,model_y,rp=None,weighted=False):
+    def cost_func(self,model_y,weighted=False):
         '''
         Will calculate the cost function used in the optimisation process. 
         A custom cost function will be used if suppled via the cfunc attribute 
@@ -111,10 +111,7 @@ class Optimizer():
         Parameters
         ----------
         model_y : np.ndarray
-            Model y values. If None, assumes only rp data will be fitted to.
-        rp : bool, optional
-            Whether to fit to particle radius/film thickness data.
-            This data should be the final column in the Data object. 
+            Model y values.  
 
         Returns
         -------
@@ -124,7 +121,7 @@ class Optimizer():
         '''
         # use user-supplied cost function if supplied
         if type(self.cfunc) != type(None):
-            val = self.cfunc(self.data,model_y,rp=rp)
+            val = self.cfunc(self.data,model_y)
         
         # use built-in cost function (MSE), *future development*
         elif type(model_y) != type(None):
@@ -156,21 +153,21 @@ class Optimizer():
         else:
             val = 0.0
         
-        # fitting to rp            
-        if type(rp) != type(None):
-            rp_expt = expt.rp 
-            rp_cost_val = (np.square(rp_expt-rp)).mean(axis=None)
+        # fitting to rp PARKED for the moment          
+        # if type(rp) != type(None):
+        #     rp_expt = expt.rp 
+        #     rp_cost_val = (np.square(rp_expt-rp)).mean(axis=None)
             
-            # return an average cost function value accounting for fit to rp
-            # and data
-            if val != 0.0:
-                self.cost_func_val = (val + rp_cost_val) / 2
-                return (val + rp_cost_val) / 2
+        #     # return an average cost function value accounting for fit to rp
+        #     # and data
+        #     if val != 0.0:
+        #         self.cost_func_val = (val + rp_cost_val) / 2
+        #         return (val + rp_cost_val) / 2
             
-            # only fitting to rp
-            else:
-                self.cost_func_val = rp_cost_val
-                return rp_cost_val
+        #     # only fitting to rp
+        #     else:
+        #         self.cost_func_val = rp_cost_val
+        #         return rp_cost_val
             
         self.cost_func_val = val
         return val
@@ -222,10 +219,7 @@ class Optimizer():
         for ind, param in enumerate(self._varying_param_keys):
             sim.parameters[param].value = vary_params[ind]
         
-        # import the model from the .py file created in the model building
-        # process
-        model_import = importlib.import_module(f'{self.model.filename[:-3]}') #XXX
-            
+         
         # define time interval
         tspan = np.linspace(min(time_span),max(time_span),n_time)
         
@@ -234,7 +228,7 @@ class Optimizer():
         t_eval = self.data.x
         
       
-        model_output = integrate.solve_ivp(lambda t, y:model_import.dydt(t,y,sim.parameters,V,A,n_layers,layer_thick,
+        model_output = integrate.solve_ivp(lambda t, y:sim._dydt(t,y,sim.parameters,V,A,n_layers,layer_thick,
                                                                          param_evolution_func=self.param_evolution_func,
                                                                          additional_params=additional_params),
                                                  (min(time_span),max(time_span)),
@@ -397,7 +391,7 @@ class Optimizer():
         return lp + self.lnlike(vary_params)
         
     
-    def fit(self,weighted=False,method='least_squares',component_no='1',n_workers=1,fit_particle_radius=False):
+    def fit(self,weighted=False,method='least_squares',component_no='1',n_workers=1):
         '''
         Use either a local or global optimisation algorithm to fit the model
         to the data. 
@@ -414,8 +408,6 @@ class Optimizer():
         n_workers : int, optional
             Number of cores to use (only for 'differential_evolution' method). 
             The default is 1.
-        fit_particle_radius : bool, optional
-            Whether to fit to particle radius data. The default is False.
             
         returns
         ----------
@@ -461,7 +453,7 @@ class Optimizer():
             
         def minimize_me(varying_param_vals,varying_param_keys,sim,component_no=component_no,
                         extra_vary_params_start_ind=extra_vary_params_start_ind,
-                        fit_particle_radius=fit_particle_radius):
+                        ):
             '''
             The function to minimise during the fitting process. 
 
@@ -514,7 +506,7 @@ class Optimizer():
             
             # import the model from the .py file created in the model building
             # process
-            model_import = importlib.import_module(f'{self.model.filename[:-3]}')
+            #model_import = importlib.import_module(f'{self.model.filename[:-3]}')
                 
             # define time interval
             tspan = np.linspace(min(time_span),max(time_span),n_time)
@@ -524,7 +516,7 @@ class Optimizer():
             t_eval = self.data.x
             
           
-            model_output = integrate.solve_ivp(lambda t, y:model_import.dydt(t,y,sim.parameters,V,A,n_layers,layer_thick,
+            model_output = integrate.solve_ivp(lambda t, y:sim._dydt(t,y,sim.parameters,V,A,n_layers,layer_thick,
                                                                              param_evolution_func=self.param_evolution_func,
                                                                              additional_params=additional_params),
                                                      (min(time_span),max(time_span)),
@@ -638,14 +630,15 @@ class Optimizer():
                     # calculate the cost function
                     
                     cost_val = self.cost_func(model_y,weighted=weighted)
-            
+                    
+                # PARKED fitting to rp for now
                 # also fit the particle radius with custom cost function (cfunc)
-                if fit_particle_radius:
-                    print('\nFitting to particle radius or film thickness **CHECK UNITS**\n(should be in cm)\n')
-                    # option to only fit to rp and not number of molecules
-                    if type(component_no) == type(None):
-                        norm_number_molecules = None
-                    cost_val = self.cost_func(norm_number_molecules,rp_t)
+                # if fit_particle_radius:
+                #     print('\nFitting to particle radius or film thickness **CHECK UNITS**\n(should be in cm)\n')
+                #     # option to only fit to rp and not number of molecules
+                #     if type(component_no) == type(None):
+                #         norm_number_molecules = None
+                #     cost_val = self.cost_func(norm_number_molecules,rp_t)
             
             
             #print(cost_val)

@@ -760,6 +760,8 @@ class ModelBuilder():
        
        self.constructed = False
        
+       
+       
 
     def build(self, name_extention='', date_tag=False, 
               use_scaled_k_surf=False, **kwargs):
@@ -782,6 +784,10 @@ class ModelBuilder():
         Saves a .py file in the current working directory containing the model 
         code defining the system of ODEs to be solved. 
         '''
+        
+        # check that the diffusion regime has been build before build starts
+        assert self.diffusion_regime.constructed == True, "The DiffusionRegime was not called prior to model construction.\nCall the DiffusionRegime object in order to build it."
+        
         # the list of strings which will be used with file.writelines()
         # at the end
         master_string_list = []

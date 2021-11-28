@@ -956,7 +956,7 @@ class Data():
         first (0) index unless specified. 
     '''
     
-    def __init__(self,data,n_skipped_rows=0,norm=False,norm_index=0,rp_col_num=None):
+    def __init__(self,data,n_skipped_rows=0,norm=False,norm_index=0):
         
         
         self._normed=False
@@ -973,30 +973,34 @@ class Data():
         # include errors if available
         # make sure y_err not same as rp when there is no y_err supplied
         # and 3rd column (index 2) is rp
-        if rp_col_num == 2:
+        
+        # PARKED fitting to rp for now
+        # if rp_col_num == 2: 
+        #     nan_array = np.empty(len(self.y))
+        #     nan_array[:] = np.nan
+        #     self.y_err = nan_array
+        #     self._unnorm_y_err = nan_array
+        
+        #else:
+            
+        try:
+            self.y_err = data[:,2]
+            self._unnorm_y_err = data[:,2]
+        except IndexError:
             nan_array = np.empty(len(self.y))
             nan_array[:] = np.nan
             self.y_err = nan_array
             self._unnorm_y_err = nan_array
-        else:
-            try:
-                self.y_err = data[:,2]
-                self._unnorm_y_err = data[:,2]
-            except IndexError:
-                nan_array = np.empty(len(self.y))
-                nan_array[:] = np.nan
-                self.y_err = nan_array
-                self._unnorm_y_err = nan_array
             
         
-        
+        # PARKED fitting to rp for now
         # now assign rp column if available
-        if type(rp_col_num) == int:
-            self.rp = data[:,rp_col_num]
-        else:
-            nan_array = np.empty(len(self.y))
-            nan_array[:] = np.nan
-            self.rp = nan_array
+        # if type(rp_col_num) == int:
+        #     self.rp = data[:,rp_col_num]
+        # else:
+        #     nan_array = np.empty(len(self.y))
+        #     nan_array[:] = np.nan
+        #     self.rp = nan_array
        
             
         if norm == True:
