@@ -95,7 +95,27 @@ class Simulate():
                 val = value.value
             except AttributeError:
                 self.parameters[par] = Parameter(value)
+
+        # check that all of the model required params are in the supplied parameter dict
+        accounted_pars = set([])
+        missing_pars = []
+        for param_name in self.model.req_params:
+            if param_name in self.parameters.keys():
+                accounted_pars.add(param_name)
+            else:
+                missing_pars.append(param_name)
+        assert accounted_pars == model.req_params, f"Some required parameters are not defined in the parameter dictionary supplied to Simulate:\n{missing_pars}"
         
+        # make user aware of parameters not required for the model but supplied to Simulate
+        # make a list of "excess parameters"
+        excess_params = []
+        for param_key in self.parameters.keys():
+            if param_key not in self.model.req_params:
+                # this parameter is not required by the model but is supplied
+                excess_params.append(param_key)
+        if excess_params != []:
+            print(f"There are some parameters supplied to Simulate object which are not required by the model:\n{excess_params}\nconsider removing them")
+
         self.data = data
         if type(self.data) != type(None) and type(self.data) != Data:
             self.data = Data(data)

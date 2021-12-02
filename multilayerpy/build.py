@@ -963,11 +963,15 @@ class ModelBuilder():
                 if comp.comp_dependent_adsorption == True:
                     alpha_s_0_str = f'\n    alpha_s_0_{comp_no} = '
                     # build up alpha_s_0 string
-                    for cn in range(len(mod_comps)):
-                        #if cn != comp_no: # is this valid?
-                        alpha_s_0_str += f'+ alpha_s_0_{comp_no}_{cn} * delta_{cn}**2 * (y[{cn-1}*Lorg+2*{cn-1}+1] / A[0]) '
-                        # update the required parameters
-                        self.req_params.add(f'alpha_s_0_{comp_no}_{cn}')
+                    for k in range(len(mod_comps)):
+                        cn = k+1
+                        if cn != comp_no: # is this valid?
+                            if mod_type.lower() == 'km-gap':
+                                alpha_s_0_str += f'+ alpha_s_0_{comp_no}_{cn} * delta_{cn}**2 * (y[{cn-1}*Lorg+2*{cn-1}+1] / A[0]) '
+                            else:
+                                alpha_s_0_str += f'+ alpha_s_0_{comp_no}_{cn} * delta_{cn}**2 * y[{cn-1}*Lorg+{cn-1}] '
+                            # update the required parameters
+                            self.req_params.add(f'alpha_s_0_{comp_no}_{cn}')
                     
                     # update the master string list
                     master_string_list.append(alpha_s_0_str)
@@ -1013,7 +1017,8 @@ class ModelBuilder():
                     j_des_str = f'\n    J_des_Z_{comp_no} = (1 / Td_{comp_no}) * (y[{comp_no-1}*Lorg+2*{comp_no-1}] / A[0])'
                 master_string_list.append(j_des_str)
                 
-                self.req_params.add(f'alpha_s_0_{comp_no}')
+                if comp.comp_dependent_adsorption == False:
+                    self.req_params.add(f'alpha_s_0_{comp_no}')
                 
                 if mod_type.lower() == 'km-sub':
                     self.req_params.add(f'Xgs_{comp_no}')
