@@ -976,7 +976,7 @@ class Data():
         first (0) index unless specified. 
     '''
     
-    def __init__(self,data,n_skipped_rows=0,norm=False,norm_index=0):
+    def __init__(self,data,n_skipped_rows=0,norm=False,norm_index=0,delimiter=''):
         
         
         self._normed=False
@@ -984,7 +984,10 @@ class Data():
         
         # if a filename string is supplied, read in the data as an array
         if type(data) == str:
-            data = np.genfromtxt(data,skip_header=n_skipped_rows)
+            if delimiter == '':
+                data = np.genfromtxt(data,skip_header=n_skipped_rows)
+            else:
+                data = np.genfromtxt(data,skip_header=n_skipped_rows,delimiter=delimiter)
             
         self.x = data[:,0]
         self.y = data[:,1]
