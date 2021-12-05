@@ -34,7 +34,7 @@ import importlib
 from scipy.optimize import differential_evolution, minimize
 from multilayerpy.simulate import Data
 import emcee
-
+import matplotlib.pyplot as plt
 
 class Optimizer():
     '''
@@ -391,7 +391,8 @@ class Optimizer():
         return lp + self.lnlike(vary_params)
         
     
-    def fit(self,weighted=False,method='least_squares',component_no='1',n_workers=1):
+    def fit(self,weighted=False,method='least_squares',component_no='1',n_workers=1,
+            popsize=15):
         '''
         Use either a local or global optimisation algorithm to fit the model
         to the data. 
@@ -648,7 +649,7 @@ class Optimizer():
             print('\nOptimising using differential_evolution algorithm...\n')
             result = differential_evolution(minimize_me,param_bounds,
                                         (varying_param_keys,sim,component_no),
-                                        disp=True,workers=n_workers)
+                                        disp=True,workers=n_workers,popsize=15)
         elif method == 'least_squares':
             #print(varying_params)
             print('\nOptimising using least_squares Nelder-Mead algorithm...\n')
@@ -773,3 +774,41 @@ class Optimizer():
             
         self._emcee_sampler = sampler
         return sampler
+    
+    def plot_chains(self,discard=0,thin=1):
+        '''
+        Plots the MCMC chains saved during the sampling run. Each plot is the 
+        parameter value at each sampling iteration.
+
+        Returns
+        -------
+        A multi-panel plot of parameter values vs step number
+
+        '''
+        
+        sampler = self._emcee_sampler
+        
+        # get the chains
+        chains = sampler.get_chain(thin=thin,discard=discard)
+        
+        n_samples, n_walkers, n_dim = chains.shape
+        
+        n_rows = int(np.ceil(n_dim / 3.0))
+        
+        # make the figure
+        
+        fig, ax = plt.subplots(nrows=n_rows,ncols=3,figsize=(3*2,n_rows*2))
+        
+        ax = ax.ravel()
+        
+        for i in range(n_dim):
+            ylabel = self._varying_param_keys[i]
+            ax[i].plot(chains[:,:,i])
+            ax[i].set_ylabel(ylabel)
+            ax[i].set_xlabel('iteration number')
+        
+        fig.tight_layout()
+        
+        plt.show()
+        
+        
