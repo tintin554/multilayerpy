@@ -51,6 +51,7 @@ MultilayerPy works on emcee version 3.1.1 onwards (this is monitored).
 In order for this project to progress, input from the community is vital. Please use the issues section of this repository to flag any issues. Forking this repository and submitting pull requests for discussion is highly encouraged as this is the best way to develop and improve this package. 
 
 Please send general feedback and suggestions to the package creator using these details:
+
 Adam Milsom (University of Birmingham): a.milsom.2@bham.ac.uk
 
 Suggestions are very welcome!
