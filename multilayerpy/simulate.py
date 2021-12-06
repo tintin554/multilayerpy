@@ -1038,8 +1038,8 @@ class Data():
         Normalise the data
         '''
         
-        self.y = self.y / self.y[norm_index]
-        self.y_err = self.y_err / self.y[norm_index]
+        self.y = self.y / self._unnorm_y[norm_index]
+        self.y_err = self.y_err / self._unnorm_y[norm_index]
         self._normed = True
         
     def unnorm(self):

@@ -336,9 +336,13 @@ class Optimizer():
         
         # if there are errors, account for them
         if not np.any(np.isnan(data.y_err)):
-            loglike = -np.sum(np.square(((data.y - model_y) / data.y_err))) / 2.0
+
+            numerator = np.square(data.y - model_y)
+            denominator = data.y_err ** 2
+
+            loglike = - 0.5 * np.sum((numerator / denominator) + np.log(2*np.pi*denominator)) 
         else:
-            loglike = -np.sum(np.square(data.y - model_y)) / 2.0
+            raise RuntimeError("Log-likelihood calcuation requires y uncertainty.") 
         
         return loglike
     
