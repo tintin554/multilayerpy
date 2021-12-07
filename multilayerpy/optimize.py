@@ -35,6 +35,7 @@ from scipy.optimize import differential_evolution, minimize
 from multilayerpy.simulate import Data
 import emcee
 import matplotlib.pyplot as plt
+import copy
 
 class Optimizer():
     '''
@@ -93,12 +94,14 @@ class Optimizer():
         self.lnprior_func = lnlike_func
         self.lnlike_func = lnlike_func
         self.custom_model_y_func = simulate_object.custom_model_y_func
+        self._sampled_xy_data = []
         
         self._vary_param_keys = None
         self._extra_vary_params_start_ind = None
         self._fitting_component_no = None
         self._vary_param_bounds = None
         self._emcee_sampler = None
+        self._sampling_component_number = None
         
     def cost_func(self,model_y,weighted=False):
         '''
@@ -337,6 +340,8 @@ class Optimizer():
         # if there are errors, account for them
         if not np.any(np.isnan(data.y_err)):
 
+            # make sure data are normalised
+            data.norm(data.norm_index)
             numerator = np.square(data.y - model_y)
             denominator = data.y_err ** 2
 
@@ -450,11 +455,11 @@ class Optimizer():
                 extra_vary_params_start_ind = len(varying_params)
             
                 # now append the param_evolution_func_extra_params to varying_params
-                # only for least_squares optimisation (requires an initial guess)
-                if method == 'least_squares':
-                    for par in param_evolution_func_extra_vary_params:  
-                        varying_params.append(par.value)
-                        param_bounds.append(par.bounds)
+                # only used in least_squares optimisation (requires an initial guess)
+                
+                for par in param_evolution_func_extra_vary_params:  
+                    varying_params.append(par.value)
+                    param_bounds.append(par.bounds)
             
         def minimize_me(varying_param_vals,varying_param_keys,sim,component_no=component_no,
                         extra_vary_params_start_ind=extra_vary_params_start_ind,
@@ -653,7 +658,7 @@ class Optimizer():
             print('\nOptimising using differential_evolution algorithm...\n')
             result = differential_evolution(minimize_me,param_bounds,
                                         (varying_param_keys,sim,component_no),
-                                        disp=True,workers=n_workers,popsize=15)
+                                        disp=True,workers=n_workers,popsize=popsize)
         elif method == 'least_squares':
             #print(varying_params)
             print('\nOptimising using least_squares Nelder-Mead algorithm...\n')
@@ -801,7 +806,7 @@ class Optimizer():
         
         # make the figure
         
-        fig, ax = plt.subplots(nrows=n_rows,ncols=3,figsize=(3*2,n_rows*2))
+        fig, ax = plt.subplots(nrows=n_rows,ncols=3,figsize=(3*2.5,n_rows*2.5))
         
         ax = ax.ravel()
         
@@ -815,4 +820,145 @@ class Optimizer():
         
         plt.show()
         
-        
+    def plot_chain_outputs(self):
+        '''
+        Plots the experimental data with n_samples number of model runs from MCMC sampling. 
+
+        Returns
+        -------
+        Plot of experimental data with normalised model output vs time for a number of MCMC samples. 
+
+        '''
+
+        # make sure there are model outputs to sample from
+        if self._sampled_xy_data == []:
+            raise RuntimeError("There are no model runs from the sampled chains to plot. Please call Optimizer.get_chain_outputs() to run the model with parameters from the MCMC sampling procedure")
+
+        # normalise experimental data
+        self.simulate.data.norm(self.simulate.data.norm_index)
+
+        time = self.simulate.data.x
+        data_y = self.simulate.data.y
+        data_y_err = self.simulate.data.y_err
+        #print(data_y)
+        sampled_data = self._sampled_xy_data
+
+        plt.figure(figsize=(3.5,3.5))
+
+        # plot data
+        plt.errorbar(time,data_y,yerr=data_y_err,mfc='none',
+                                     mec='k',linestyle='none',label='data',marker='o',color='k',
+                                     )
+
+        # unnormalise the data
+        self.simulate.data.unnorm()
+
+        # plot each sample output
+        for i, sample_output in enumerate(sampled_data):
+            t = sample_output[:,0]
+            y = sample_output[:,1]
+            if i == 0:
+                plt.plot(t,y/y[0],ls='-',color=(1,0,0,0.1),label='sampled model output',lw=1)
+            else:
+                plt.plot(t,y/y[0],ls='-',color=(1,0,0,0.1),lw=2)
+
+        plt.xlabel('Time / s')
+        plt.ylabel('Normalised amount of component')
+        plt.legend()
+        plt.tight_layout()
+        plt.show()
+
+    def get_chain_outputs(self, n_samples='None', parallel=True,component_number=1,n_burn=0,thin=1,
+                            override_stop_run=False):
+
+
+        # do an initial check for chains that have already been sampled
+        if self._sampled_xy_data != [] and override_stop_run == False:
+            print('get_chain_outputs(): ')
+            print('RUN NOT STARTED: there are already model outputs stored by the optimiser.\nTo override and aquire model outputs from a new sample, set "override_stop_run" to True.')
+            print('Sampled data from previous run returned.')
+            return self._sampled_xy_data
+
+        if n_samples == 'None':
+            n_samples = self._emcee_sampler.get_chain().shape[0]
+
+        self._sampling_component_number = component_number
+
+        print(f'Getting {n_samples} sampled model outputs from MCMC chain with {n_burn} discarded steps and {thin} thinning steps...')
+        chains = self._emcee_sampler.get_chain(discard=n_burn,thin=thin)
+
+        # select n_samples number of random samples from the MCMC chains
+
+        random_sample_numbers = set([])
+        while len(random_sample_numbers) < n_samples:
+            randint = np.random.choice(n_samples)
+            random_sample_numbers.add(int(randint))
+
+        # make a list of simulate objects (deepcopies)
+        sim_obj_list = []
+        for i in random_sample_numbers:
+            sim_obj = copy.deepcopy(self.simulate)
+
+            # edit the parameter dictionary with sampled parameter values
+            for k, key in enumerate(self._varying_param_keys):
+
+                # chains.shape = (n_samples, n_walkers, n_dim)
+                # pick a random chain to sample from
+                rand_chain_no = np.random.choice(chains.shape[1])
+
+                # the kth varying parameter from a random chain in the ith sample 
+                sim_obj.parameters[key].value = chains[i,int(rand_chain_no),k]
+
+            sim_obj_list.append(sim_obj)
+
+
+        # do the model runs in parallel (default)
+        if parallel:
+            print('Running sampled model simulations in parallel...')
+            from multiprocessing import Pool
+
+            # carrying out paralell things in an IDE on Windows needs this line below
+            if __name__ == "__main__":
+                
+                with Pool() as p:
+                    xy_array_output = p.map(self._get_xy_data_sample,sim_obj_list)
+
+                    print('xy_array_output',xy_array_output)
+                #return xy_array_output
+
+            # otherwise (Jupyter notebook) we can skip that
+            else: 
+                with Pool() as p:
+                    xy_array_output = p.map(self._get_xy_data_sample,sim_obj_list)
+
+                    #print(len(xy_array_output))
+                #return xy_array_output
+
+        # do the model runs in series
+        else:
+            print('Running sampled model simulations in series...')
+            xy_array_output = []
+            for sim in sim_obj_list:
+                xy_array = self._get_xy_data_sample(sim)
+                xy_array_output.append(xy_array)
+
+        self._sampled_xy_data = xy_array_output
+        return xy_array_output
+
+
+
+    def _get_xy_data_sample(self, sim):
+                component_number = self._sampling_component_number
+                
+                sim.run(sim.run_params['n_layers'],sim.run_params['rp'],sim.run_params['time_span'],
+                    sim.run_params['n_time'],sim.run_params['V'],sim.run_params['A'],sim.run_params['layer_thick'],
+                    sim.run_params['Y0'],ode_integrator=sim.run_params['ode_integrator'],
+                    ode_integrate_method=sim.run_params['ode_integrate_method'],
+                    rtol=sim.run_params['rtol'], atol=sim.run_params['atol'])
+
+                xy_data = sim.xy_data_total_number(components=int(component_number))
+
+                
+                xy_array = xy_data
+                #print(xy_array.shape)
+                return xy_array

@@ -555,11 +555,11 @@ class Simulate():
             try: 
                 if norm:
                     if data._normed == True:
-                        plt.errorbar(data.x,data.y,yerr=data.y_err/max(data.y),mfc='none',
+                        plt.errorbar(data.x,data.y,yerr=data.y_err,mfc='none',
                                      mec='k',linestyle='none',label='data',marker='o',color='k')
                     else:
                         data.norm(data.norm_index)
-                        plt.errorbar(data.x,data.y,yerr=data.y_err/max(data.y),mfc='none',
+                        plt.errorbar(data.x,data.y,yerr=data.y_err,mfc='none',
                                      mec='k',linestyle='none',label='data',marker='o',color='k')
                         data.unnorm()
                     
@@ -672,8 +672,8 @@ class Simulate():
                 xy_output = np.column_stack((xy_output,total_no))
             
             # selected components outputted
-            elif type(components) == type(list):
-                if i in components:
+            elif type(components) == list:
+                if i+1 in components:
                     if mod_type == 'km-sub':
                         surf_no = self.surf_concs[f'{i+1}'] * A[0]
                         bulk_no = self.bulk_concs[f'{i+1}'] * V
@@ -689,8 +689,8 @@ class Simulate():
                     xy_output = np.column_stack((xy_output,total_no))
             
             # one component outputted
-            elif type(components) == type(int):
-                if i == components:
+            elif type(components) == int:
+                if i+1 == components:
                     if mod_type == 'km-sub':
                         surf_no = self.surf_concs[f'{i+1}'] * A[0]
                         bulk_no = self.bulk_concs[f'{i+1}'] * V
@@ -1028,7 +1028,7 @@ class Data():
             
         if norm == True:
             self.y = self.y / self.y[norm_index]
-            self.y_err = self.y_err / self.y[norm_index]
+            self.y_err = self.y_err / self._unnorm_y
             self._normed = True
             
         
@@ -1037,9 +1037,8 @@ class Data():
         '''
         Normalise the data
         '''
-        
-        self.y = self.y / self._unnorm_y[norm_index]
-        self.y_err = self.y_err / self._unnorm_y[norm_index]
+        self.y = self._unnorm_y / self._unnorm_y[norm_index]
+        self.y_err = self._unnorm_y_err / self._unnorm_y[norm_index]
         self._normed = True
         
     def unnorm(self):
