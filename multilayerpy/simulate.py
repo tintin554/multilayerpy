@@ -324,9 +324,15 @@ class Simulate():
                                                      Y0,t_eval=tspan,method=ode_integrate_method,
                                                      rtol=rtol,atol=atol,dense_output=dense_output)
         else:
+            
+            # for a single run we just want the float values of the additional param_evo parameters as a list
+            param_evo_value_list = []
+            for par_obj in self.param_evo_additional_params:
+                param_evo_value_list.append(par_obj.value)
+
             model_output = integrate.solve_ivp(lambda t, y:self._dydt(t,y,params,V,A,n_layers,layer_thick,
                                                                              param_evolution_func=self.param_evo_func,
-                                                                             additional_params=self.param_evo_additional_params),
+                                                                             additional_params=param_evo_value_list),
                                                      (min(time_span),max(time_span)),
                                                      Y0,t_eval=tspan,method=ode_integrate_method,
                                                      rtol=rtol,atol=atol,dense_output=dense_output)

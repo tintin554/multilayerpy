@@ -1552,8 +1552,9 @@ class Parameter():
         A tuple or list defining the lower and upper bounds for the parameter.
     vary : bool
         Whether this parameter is to vary during model optimisation.
+
     '''
-    def __init__(self, value=np.inf, name=None,bounds=None, vary=False):
+    def __init__(self, value=np.inf, name='',bounds=None, vary=False):
         
         self.name = name
         self.bounds = None

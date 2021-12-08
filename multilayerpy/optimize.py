@@ -30,6 +30,7 @@ import numpy as np
 import multilayerpy.simulate as simulate
 import scipy.integrate as integrate
 import multilayerpy.build
+from multilayerpy.build import Parameter
 import importlib
 from scipy.optimize import differential_evolution, minimize
 from multilayerpy.simulate import Data
@@ -89,8 +90,8 @@ class Optimizer():
         self.cost = cost
         self.cfunc = cfunc
         self.cost_func_val = None
-        self.param_evolution_func = param_evolution_func
-        self.param_evolution_func_extra_vary_params = param_evolution_func_extra_vary_params
+        self.param_evolution_func = self.simulate.param_evo_func
+        self.param_evolution_func_extra_vary_params = self.simulate.param_evo_additional_params
         self.lnprior_func = lnlike_func
         self.lnlike_func = lnlike_func
         self.custom_model_y_func = simulate_object.custom_model_y_func
@@ -438,6 +439,8 @@ class Optimizer():
         varying_params = []
         varying_param_keys = []
         param_bounds = []
+        add_param_names = []
+        add_param_bounds = []
         
         for param in sim.parameters:
             if sim.parameters[param].vary == True:
@@ -453,13 +456,15 @@ class Optimizer():
             # minimize_me
             if type(param_evolution_func_extra_vary_params) != type(None):
                 extra_vary_params_start_ind = len(varying_params)
-            
+                
                 # now append the param_evolution_func_extra_params to varying_params
                 # only used in least_squares optimisation (requires an initial guess)
                 
                 for par in param_evolution_func_extra_vary_params:  
                     varying_params.append(par.value)
                     param_bounds.append(par.bounds)
+                    add_param_bounds.append(par.bounds) # for recreating Parameter object after optimisation
+                    add_param_names.append(par.name)
             
         def minimize_me(varying_param_vals,varying_param_keys,sim,component_no=component_no,
                         extra_vary_params_start_ind=extra_vary_params_start_ind,
@@ -653,7 +658,7 @@ class Optimizer():
             
             #print(cost_val)
             return cost_val
-        
+
         if method == 'differential_evolution':
             print('\nOptimising using differential_evolution algorithm...\n')
             result = differential_evolution(minimize_me,param_bounds,
@@ -667,10 +672,22 @@ class Optimizer():
             
         # collect results into a result dict for printing
         res_dict = {}
-        for i in range(len(varying_param_keys)):
-            key = varying_param_keys[i]
-            res_dict[key] = result.x[i]
-            
+
+        if len(varying_param_keys) != 0:
+            for i in range(len(varying_param_keys)):
+                key = varying_param_keys[i]
+                res_dict[key] = result.x[i]
+
+        else:
+            optimised_extra_vary_params_list = []
+            for i in range(len(add_param_names)):
+                key = add_param_names[i]
+                res_dict[key] = result.x[i]
+                
+                optimised_param_obj = Parameter(result.x[i],name=key,vary=True,bounds=add_param_bounds[i])
+                optimised_extra_vary_params_list.append(optimised_param_obj)
+
+            sim.param_evo_additional_params = optimised_extra_vary_params_list
         
         # print out results
         
