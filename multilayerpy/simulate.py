@@ -53,7 +53,7 @@ class Simulate():
         Experimental data for use during model optimisation. 
     '''
     
-    def __init__(self, model, params_dict, data=None, custom_model_y_func=None):
+    def __init__(self, model, params_dict, data=None, custom_model_y_func=None, name='model'):
         
         # if Y0 == no_components, assume same for all
         # elif it is == Lorg * n_comp + n_comp, use as-is
@@ -64,6 +64,8 @@ class Simulate():
         self.model = model
         
         self.model_output = None
+
+        self.name = name
         
         self.run_params = {'n_layers':None,
                            'rp': None,
@@ -724,34 +726,66 @@ class Simulate():
         '''
         
         params = self.parameters
-        
-        output_array = np.array(['Parameter_name','value','lower_bound','upper_bound'])
+
+        # check that any MCMC sampling has occured to determine if values from this should be quoted
+        MCMC = False
+        for param in params.values():
+            if param.stats is not None:
+                MCMC = True
+
+        n_burn = None
+        n_thin = None
+                
+        output_array = np.array(['Parameter_name','value','lower_bound','upper_bound',
+                                 'MCMC mean value', '2.5% (percentile)', '97.5% (percentile)',
+                                 'standard deviation'])
         
         # for each param in the param dict, append info to the output array
         for name, param in params.items():
             
             lower_bound = 'n/a'
             upper_bound = 'n/a'
+            mean_mcmc = 'n/a'
+            percent_2point5 = 'n/a'
+            percent_97point5 = 'n/a'
+            std = 'n/a'
             
-            if type(param.bounds) != type(None):
+            if param.bounds is not None:
                 lb = min(param.bounds)
                 ub = max(param.bounds)
                 
                 lower_bound = '{:.2e}'.format(lb)
                 upper_bound = '{:.2e}'.format(ub)
+
+            if param.stats is not None:
+                mean_mcmc = param.stats['mean_mcmc']
+                percent_2point5 = param.stats['2.5th percentile']
+                percent_97point5 = param.stats['97.5th percentile']
+                std = param.stats['std_mcmc']
+
+                if param.stats['n_burn'] is not None:
+                    n_burn = param.stats['n_burn']
+                    n_thin = param.stats['n_thin']
+
     
             val = float(param.value)
             
-            arr = np.array([name,val,lower_bound,upper_bound])
+            arr = np.array([name,val,lower_bound,upper_bound,mean_mcmc,
+                            percent_2point5,percent_97point5,std])
             
             output_array = np.vstack((output_array,arr))
             
         # make sure the filename has an extension
         if '.' not in filename:
             filename += '.csv'
+
+        # create a header with creation date and details of any MCMC sampling procedure
+        header = f'# [MultilayerPy] Optimised parameters for [{self.name}] (model) and {self.data.name} (data)'
+        if MCMC == True:
+            header += f'. MCMC sampling: n_burn= {n_burn}; n_thin= {n_thin}'
         
         # save the file
-        np.savetxt(filename,output_array,delimiter=',',fmt='%s')
+        np.savetxt(filename,output_array,delimiter=',',fmt='%s',header=header)
         
     def rp_vs_t(self):
         '''
@@ -772,7 +806,20 @@ class Simulate():
             rp = None
         return rp
         
-    
+    def set_mcmc_params(self,statistic='mean'):
+
+        no_mcmc = True
+        for param in self.parameters.values():
+            if param.stats is not None:
+                no_mcmc = False
+        
+        if no_mcmc == True:
+            raise RuntimeError("MCMC sampling has not been carried out.")
+
+        for param in self.parameters.values():
+            if param.stats is not None:
+                param.value = param.stats['mean_mcmc']
+
     
 
 def initial_concentrations(model_type,bulk_conc_dict,surf_conc_dict,n_layers,
@@ -973,6 +1020,8 @@ class Data():
             column 2 --> y_experiment
             column 3 (optional) --> y_error
             column 4 (optional) --> particle radius
+    name : str, optional
+        The name of the dataset.
     n_skipped_rows : int, optional
         The number of rows to skip when reading in the data from a file. 
     norm : bool, optional
@@ -982,11 +1031,12 @@ class Data():
         first (0) index unless specified. 
     '''
     
-    def __init__(self,data,n_skipped_rows=0,norm=False,norm_index=0,delimiter=''):
+    def __init__(self,data,name='',n_skipped_rows=0,norm=False,norm_index=0,delimiter=''):
         
         
         self._normed=False
         self.norm_index = norm_index
+        self.name = name
         
         # if a filename string is supplied, read in the data as an array
         if type(data) == str:

@@ -90,7 +90,7 @@ class Optimizer():
         self.cost = cost
         self.cfunc = cfunc
         self.cost_func_val = None
-        self.param_evolution_func = self.simulate.param_evo_func
+        self.param_evolution_func = copy.deepcopy(self.simulate.param_evo_func)
         self.param_evolution_func_extra_vary_params = self.simulate.param_evo_additional_params
         self.lnprior_func = lnlike_func
         self.lnlike_func = lnlike_func
@@ -191,7 +191,7 @@ class Optimizer():
             The log-likelihood of the model fit.
 
         '''
-        
+
         data = self.data
         sim = self.simulate
         # check if data have yerrs
@@ -214,15 +214,17 @@ class Optimizer():
         layer_thick = sim.run_params['layer_thick']
         Y0 = sim.run_params['Y0']
         
-        if type(self._extra_vary_params_start_ind) != None:
+        if type(self._extra_vary_params_start_ind) == int:
             additional_params = vary_params[self._extra_vary_params_start_ind:]
         else:
             additional_params = None
-        
+
+
         # update the simulate object parameters 
-        for ind, param in enumerate(self._varying_param_keys):
-            sim.parameters[param].value = vary_params[ind]
-        
+        if type(self._vary_param_keys) != type(None):
+            for ind, param in enumerate(self._vary_param_keys):
+                sim.parameters[param].value = vary_params[ind]
+            
          
         # define time interval
         tspan = np.linspace(min(time_span),max(time_span),n_time)
@@ -231,9 +233,9 @@ class Optimizer():
         # assuming expt time axis is in s
         t_eval = self.data.x
         
-      
+        
         model_output = integrate.solve_ivp(lambda t, y:sim._dydt(t,y,sim.parameters,V,A,n_layers,layer_thick,
-                                                                         param_evolution_func=self.param_evolution_func,
+                                                                         param_evolution_func=sim.param_evo_func,
                                                                          additional_params=additional_params),
                                                  (min(time_span),max(time_span)),
                                                  Y0,t_eval=t_eval,method=ode_integrate_method)
@@ -678,13 +680,13 @@ class Optimizer():
                 key = varying_param_keys[i]
                 res_dict[key] = result.x[i]
 
-        else:
+        if len(add_param_names) != 0:
             optimised_extra_vary_params_list = []
             for i in range(len(add_param_names)):
                 key = add_param_names[i]
-                res_dict[key] = result.x[i]
+                res_dict[key] = result.x[i+len(varying_param_keys)]
                 
-                optimised_param_obj = Parameter(result.x[i],name=key,vary=True,bounds=add_param_bounds[i])
+                optimised_param_obj = Parameter(result.x[i+len(varying_param_keys)],name=key,vary=True,bounds=add_param_bounds[i])
                 optimised_extra_vary_params_list.append(optimised_param_obj)
 
             sim.param_evo_additional_params = optimised_extra_vary_params_list
@@ -737,12 +739,13 @@ class Optimizer():
         '''
         
         sim = self.simulate
-        param_evolution_func_extra_vary_params = self.param_evolution_func_extra_vary_params
+        param_evolution_func_extra_vary_params = sim.param_evo_additional_params
         
         # identify varying params, append to varying_params list and record order
         varying_params = []
         varying_param_keys = []
         param_bounds = []
+        add_param_names = []
         
         for param in sim.parameters:
             if sim.parameters[param].vary == True:
@@ -760,45 +763,45 @@ class Optimizer():
                 extra_vary_params_start_ind = len(varying_params)
             
                 # now append the param_evolution_func_extra_params to varying_params
-                # only for least_squares optimisation (requires an initial guess)
                 
                 for par in param_evolution_func_extra_vary_params:  
                     varying_params.append(par.value)
                     param_bounds.append(par.bounds)
+                    add_param_names.append(par.name)
                     
-        self._varying_param_keys = varying_param_keys
+        self._vary_param_keys = varying_param_keys
         self._extra_vary_params_start_ind = extra_vary_params_start_ind
         self._vary_param_bounds = param_bounds
         
         # make initial guess
         
         ndim = len(varying_params)
-        print('Order of varying params:')
-        print(varying_param_keys)
-        
+
         # array of initialised chains centred around the initial guess (small gaussian distribution)
         p0 = [np.array(varying_params) * np.random.normal(1.0,1e-9,len(varying_params)) for i in range(n_walkers)]
 
-        
-        # run the model with 
-        
+
         sampler = emcee.EnsembleSampler(nwalkers=n_walkers, ndim=ndim,
-                                        log_prob_fn=self.lnprob, pool=pool)
+                                            log_prob_fn=self.lnprob, pool=pool)
 
         if n_burn != 0:
-            print("Running burn-in step...")
+            print("Running MCMC burn-in step...")
             p0, _, _ = sampler.run_mcmc(p0, n_burn,progress=True)
             sampler.reset()
             
-            print("Running production run...")
+            print("Running MCMC production run...")
             pos, prob, state = sampler.run_mcmc(p0, samples,progress=True)
             
         else:
             
-            print("Running production run without burn-in...")
+            print("Running MCMC production run...")
             pos, prob, state = sampler.run_mcmc(p0, samples,progress=True)
-            
+                
         self._emcee_sampler = sampler
+
+        # update the parameter objects with the statistics from MCMC sampling (including burn-in and thinning)
+        self._update_param_stats(self._emcee_sampler,n_burn=n_burn,thin=1)
+
         return sampler
     
     def plot_chains(self,discard=0,thin=1):
@@ -828,7 +831,7 @@ class Optimizer():
         ax = ax.ravel()
         
         for i in range(n_dim):
-            ylabel = self._varying_param_keys[i]
+            ylabel = self._vary_param_keys[i]
             ax[i].plot(chains[:,:,i])
             ax[i].set_ylabel(ylabel)
             ax[i].set_xlabel('iteration number')
@@ -885,7 +888,7 @@ class Optimizer():
         plt.tight_layout()
         plt.show()
 
-    def get_chain_outputs(self, n_samples='None', parallel=True,component_number=1,n_burn=0,thin=1,
+    def get_chain_outputs(self, n_samples='all', parallel=True,component_number=1,n_burn=0,thin=1,
                             override_stop_run=False):
 
 
@@ -896,7 +899,7 @@ class Optimizer():
             print('Sampled data from previous run returned.')
             return self._sampled_xy_data
 
-        if n_samples == 'None':
+        if n_samples == 'all':
             n_samples = self._emcee_sampler.get_chain().shape[0]
 
         self._sampling_component_number = component_number
@@ -917,7 +920,7 @@ class Optimizer():
             sim_obj = copy.deepcopy(self.simulate)
 
             # edit the parameter dictionary with sampled parameter values
-            for k, key in enumerate(self._varying_param_keys):
+            for k, key in enumerate(self._vary_param_keys):
 
                 # chains.shape = (n_samples, n_walkers, n_dim)
                 # pick a random chain to sample from
@@ -928,6 +931,8 @@ class Optimizer():
 
             sim_obj_list.append(sim_obj)
 
+        # update the parameter objects with the statistics from MCMC sampling (including burn-in and thinning)
+        self._update_param_stats(self._emcee_sampler,n_burn=n_burn,thin=thin)
 
         # do the model runs in parallel (default)
         if parallel:
@@ -965,17 +970,57 @@ class Optimizer():
 
 
     def _get_xy_data_sample(self, sim):
-                component_number = self._sampling_component_number
-                
-                sim.run(sim.run_params['n_layers'],sim.run_params['rp'],sim.run_params['time_span'],
-                    sim.run_params['n_time'],sim.run_params['V'],sim.run_params['A'],sim.run_params['layer_thick'],
-                    sim.run_params['Y0'],ode_integrator=sim.run_params['ode_integrator'],
-                    ode_integrate_method=sim.run_params['ode_integrate_method'],
-                    rtol=sim.run_params['rtol'], atol=sim.run_params['atol'])
 
-                xy_data = sim.xy_data_total_number(components=int(component_number))
+        component_number = self._sampling_component_number
+        
+        sim.run(sim.run_params['n_layers'],sim.run_params['rp'],sim.run_params['time_span'],
+            sim.run_params['n_time'],sim.run_params['V'],sim.run_params['A'],sim.run_params['layer_thick'],
+            sim.run_params['Y0'],ode_integrator=sim.run_params['ode_integrator'],
+            ode_integrate_method=sim.run_params['ode_integrate_method'],
+            rtol=sim.run_params['rtol'], atol=sim.run_params['atol'])
 
-                
-                xy_array = xy_data
-                #print(xy_array.shape)
-                return xy_array
+        xy_data = sim.xy_data_total_number(components=int(component_number))
+
+        
+        xy_array = xy_data
+        #print(xy_array.shape)
+        return xy_array
+
+    def _update_param_stats(self,sampler,n_burn,thin):
+
+        sim = self.simulate
+
+        # get the flattened chains
+        flat_chains = sampler.get_chain(flat=True,discard=n_burn,thin=thin)
+
+        nsamples, ndim = flat_chains.shape
+
+        vary_param_keys = self._vary_param_keys
+
+        # make mcmc stats dict for each param
+
+        # for each varying param, calculate stats and update mcmc stats dict
+
+        for i, key in enumerate(vary_param_keys):
+
+            # calc stats
+            param_chain = flat_chains[:,i]
+
+            mean = np.mean(param_chain)
+            percent_2point5 = np.percentile(param_chain,2.5)
+            percent_97point5 = np.percentile(param_chain,97.5)
+            std = np.std(param_chain)
+            stats_dict = {'mean_mcmc': mean,
+                          '2.5th percentile': percent_2point5,
+                          '97.5th percentile': percent_97point5,
+                          'std_mcmc': std,
+                          'n_burn': n_burn,
+                          'n_thin': thin,
+                          'original_value': sim.parameters[key].value}
+
+            sim.parameters[key].stats = stats_dict
+
+
+
+
+

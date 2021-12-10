@@ -1552,18 +1552,17 @@ class Parameter():
         A tuple or list defining the lower and upper bounds for the parameter.
     vary : bool
         Whether this parameter is to vary during model optimisation.
+    stats : dict
+        A dictionary which holds statistics derived from MCMC sampling.
 
     '''
     def __init__(self, value=np.inf, name='',bounds=None, vary=False):
         
         self.name = name
-        self.bounds = None
-        # define bounds if given
-        if bounds is not None:
-            self.bounds = bounds
-            
+        self.bounds = bounds   
         self.value = value
         self.vary = vary
+        self.stats = None
        
         
 
