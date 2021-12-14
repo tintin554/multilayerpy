@@ -1044,7 +1044,11 @@ class Data():
                 data = np.genfromtxt(data,skip_header=n_skipped_rows)
             else:
                 data = np.genfromtxt(data,skip_header=n_skipped_rows,delimiter=delimiter)
-            
+        
+        # make sure data argument is not None
+        if data is None:
+            raise RuntimeError("Data needs to be an array or filename.")
+
         self.x = data[:,0]
         self.y = data[:,1]
         self._unnorm_y = data[:,1]

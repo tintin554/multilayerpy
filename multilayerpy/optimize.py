@@ -433,9 +433,14 @@ class Optimizer():
             https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.differential_evolution.html
         
         '''
+
         self._fitting_component_no = component_no
         sim = self.simulate
         param_evolution_func_extra_vary_params = self.param_evolution_func_extra_vary_params
+
+        # check that there are data to fit to
+        if sim.data is None:
+            raise RuntimeError("There are no data associated with the Simulate object.")
         
         # identify varying params, append to varying_params list and record order
         varying_params = []
