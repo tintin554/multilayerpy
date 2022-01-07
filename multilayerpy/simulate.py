@@ -673,9 +673,16 @@ class Simulate():
                     surf_no = self.surf_concs[f'{i+1}'] * At[:,0]
                     stat_surf_no = self.static_surf_concs[f'{i+1}'] * At[:,0]
                     bulk_no = self.bulk_concs[f'{i+1}'] * Vt
-                    
-                tot_bulk_no = np.sum(bulk_no,axis=1)
-                total_no = surf_no + tot_bulk_no + stat_surf_no
+                
+                # account for custom model y output
+                if self.custom_model_y_func is not None: 
+                    if mod_type == 'km-sub':
+                        total_no = self.custom_model_y_func(self.bulk_concs,self.surf_concs,V,A)
+                    elif mod_type == 'km-gap':
+                        total_no = self.custom_model_y_func(self.bulk_concs,self.surf_concs,self.static_surf_concs,Vt,At)
+                else:
+                    tot_bulk_no = np.sum(bulk_no,axis=1)
+                    total_no = surf_no + tot_bulk_no + stat_surf_no
                 
                 xy_output = np.column_stack((xy_output,total_no))
             
@@ -691,10 +698,17 @@ class Simulate():
                         stat_surf_no = self.static_surf_concs[f'{i+1}'] * At[:,0]
                         bulk_no = self.bulk_concs[f'{i+1}'] * Vt
                     
-                    tot_bulk_no = np.sum(bulk_no,axis=1)
-                    total_no = surf_no + tot_bulk_no + stat_surf_no
-                    
-                    xy_output = np.column_stack((xy_output,total_no))
+                    # account for custom model y output
+                    if self.custom_model_y_func is not None: 
+                        if mod_type == 'km-sub':
+                            total_no = self.custom_model_y_func(self.bulk_concs,self.surf_concs,V,A)
+                        elif mod_type == 'km-gap':
+                            total_no = self.custom_model_y_func(self.bulk_concs,self.surf_concs,self.static_surf_concs,Vt,At)
+                    else:
+                        tot_bulk_no = np.sum(bulk_no,axis=1)
+                        total_no = surf_no + tot_bulk_no + stat_surf_no
+                        
+                        xy_output = np.column_stack((xy_output,total_no))
             
             # one component outputted
             elif type(components) == int:
@@ -708,8 +722,15 @@ class Simulate():
                         stat_surf_no = self.static_surf_concs[f'{i+1}'] * At[:,0]
                         bulk_no = self.bulk_concs[f'{i+1}'] * Vt
                     
-                    tot_bulk_no = np.sum(bulk_no,axis=1)
-                    total_no = surf_no + tot_bulk_no + stat_surf_no
+                    # account for custom model y output
+                    if self.custom_model_y_func is not None: 
+                        if mod_type == 'km-sub':
+                            total_no = self.custom_model_y_func(self.bulk_concs,self.surf_concs,V,A)
+                        elif mod_type == 'km-gap':
+                            total_no = self.custom_model_y_func(self.bulk_concs,self.surf_concs,self.static_surf_concs,Vt,At)
+                    else:
+                        tot_bulk_no = np.sum(bulk_no,axis=1)
+                        total_no = surf_no + tot_bulk_no + stat_surf_no
                     
                     xy_output = np.column_stack((xy_output,total_no))
 
@@ -1031,12 +1052,15 @@ class Data():
         first (0) index unless specified. 
     '''
     
-    def __init__(self,data,name='',n_skipped_rows=0,norm=False,norm_index=0,delimiter=''):
+    def __init__(self,data,name='',n_skipped_rows=0,norm=False,norm_index=0,delimiter='',normalised=False):
         
         
         self._normed=False
         self.norm_index = norm_index
         self.name = name
+        self.normalised = normalised
+        if self.normalised == True:
+            self._normed=True
         
         # if a filename string is supplied, read in the data as an array
         if type(data) == str:
@@ -1097,17 +1121,22 @@ class Data():
         '''
         Normalise the data
         '''
-        self.y = self._unnorm_y / self._unnorm_y[norm_index]
-        self.y_err = self._unnorm_y_err / self._unnorm_y[norm_index]
-        self._normed = True
+        if self.normalised == True:
+            pass
+        else:
+            self.y = self._unnorm_y / self._unnorm_y[norm_index]
+            self.y_err = self._unnorm_y_err / self._unnorm_y[norm_index]
+            self._normed = True
         
     def unnorm(self):
         '''
         un-normalise the data
         '''
-        self.y = self._unnorm_y
-        self.y_err = self._unnorm_y_err
-        self._normed = False
+    
+        if not self.normalised:
+            self._normed = False
+            self.y = self._unnorm_y
+            self.y_err = self._unnorm_y_err
         
         
 

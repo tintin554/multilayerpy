@@ -82,10 +82,10 @@ class Optimizer():
         
         # make data into a Data object if not already
         data = simulate_object.data
-        if type(data) != Data:
-            self.data = Data(data,norm=True)
-        else:
+        if isinstance(data,Data):
             self.data = simulate_object.data
+        else:
+            raise RuntimeError("Simulate.data needs to be an instance of the Data class.")
         
         self.cost = cost
         self.cfunc = cfunc
@@ -893,7 +893,7 @@ class Optimizer():
         plt.tight_layout()
         plt.show()
 
-    def get_chain_outputs(self, n_samples='all', parallel=True,component_number=1,n_burn=0,thin=1,
+    def get_chain_outputs(self, n_samples='all', parallel=False,component_number=1,n_burn=0,thin=1,
                             override_stop_run=False):
 
 
