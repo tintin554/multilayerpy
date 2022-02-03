@@ -720,7 +720,7 @@ class ModelBuilder():
     '''
     An object which constructs the model file from the reaction scheme, list
     of model components and a diffusion regime.
-    
+        
     Parameters
     ----------
     reaction_scheme : multilayerpy.build.ReactionScheme
@@ -866,19 +866,29 @@ class ModelBuilder():
             for vtot in comp_V_list:
                 Vtot_str += '+ ' + vtot + ' '
             
-            sum_V_str = '\n    sum_V = np.cumsum(np.flip(Vtot))'
-            r_pos_str = '\n    r_pos = np.cbrt((3.0* np.flip(sum_V))/(4*np.pi))' # different for planar SORT THIS OUT
-            A_str = '\n    A = 4 * np.pi * r_pos**2'
+            if self.geometry == 'spherical':
+                sum_V_str = '\n    sum_V = np.cumsum(np.flip(Vtot))'
+                r_pos_str = '\n    r_pos = np.cbrt((3.0* np.flip(sum_V))/(4*np.pi))' # different for planar SORT THIS OUT
+                A_str = '\n    A = 4 * np.pi * r_pos**2'
+                
+                layer_thick_str = '\n    layer_thick = r_pos[:-1] - r_pos[1:]'
+                layer_thick_core_str = '\n    layer_thick = np.append(layer_thick,r_pos[-1])'
             
-            layer_thick_str = '\n    layer_thick = r_pos[:-1] - r_pos[1:]'
-            layer_thick_core_str = '\n    layer_thick = np.append(layer_thick,r_pos[-1])'
-            
+            elif self.geometry == 'film':
+                A_str = '\n    A = np.ones(len(Vtot)) * (1e-4 ** 2) # 1e-4 cm is nominal square cross-section length'
+                layer_thick_str = '\n    layer_thick = Vtot / A'
+
+            # append relevant strings to master string list
             master_string_list.append(Vtot_str)
-            master_string_list.append(sum_V_str)
-            master_string_list.append(r_pos_str)
+            if self.geometry == 'spherical':
+                master_string_list.append(sum_V_str)
+                master_string_list.append(r_pos_str)
+
             master_string_list.append(A_str)
             master_string_list.append(layer_thick_str)
-            master_string_list.append(layer_thick_core_str)
+
+            if self.geometry == 'spherical':
+                master_string_list.append(layer_thick_core_str)
             master_string_list.append('\n    V = Vtot') # V now re-defined
             
         # surface uptake definition for each gas component

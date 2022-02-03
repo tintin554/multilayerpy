@@ -129,6 +129,22 @@ class Simulate():
         
         # save dydt func for picklability 
         self._dydt = model_import.dydt
+
+    def set_model(self, model_filename, notification=False):
+
+        model_import = importlib.import_module(f'{model_filename[:-3]}')
+
+        # save dydt func from model file to the Simulate object
+        self._dydt = model_import.dydt
+
+        # update the model.filename
+        self.model.filename = model_filename
+
+        # print what has just happened
+        if notification:
+            print(f'Model updated to: {self.model.filename}')
+
+
         
     def calc_Vt_At_layer_thick(self):
 
@@ -202,7 +218,7 @@ class Simulate():
         
         elif self.model.geometry == 'film':
             square_length = 1e-4 # length of square cross-section of the film (1 µm), arbitrary
-            A = square_length ** 2 # same for all layers
+            A = np.ones(shape=Vtot.shape) * square_length ** 2 # same for all layers
             layer_thick = Vtot / A
             
         # layer thickness
