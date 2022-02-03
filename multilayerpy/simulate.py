@@ -130,7 +130,17 @@ class Simulate():
         # save dydt func for picklability 
         self._dydt = model_import.dydt
 
-    def set_model(self, model_filename, notification=False):
+    def set_model(self, model_filename, notification=True):
+        '''
+        Updates the model used in the simulate object.
+        
+        Parameters
+        ----------
+        model_filename : str
+            The filename of the .py file defining a dydt function for the model.
+        notification : bool, optional
+            Whether a notification is printed telling the user that the model has been updated. 
+        '''
 
         model_import = importlib.import_module(f'{model_filename[:-3]}')
 
@@ -436,7 +446,7 @@ class Simulate():
         
             
         
-    def plot(self,norm=False,data=None,comp_number='all'):
+    def plot(self,norm=False,data=None,comp_number='all',save=False):
         '''
         
         Plots the model output.
@@ -454,6 +464,10 @@ class Simulate():
         -------
         matplotlib.pyplot.figure object
         '''
+
+        # filename if saving is desired
+        if save:
+            filename = self.model.reaction_scheme.name 
         
         # if data not supplied with func call, use self.data
         if type(data) == type(None):
@@ -495,6 +509,8 @@ class Simulate():
         plt.xlabel('Time / s',fontsize='large')
         plt.legend()
         plt.tight_layout()
+        if save:
+            plt.savefig(filename + '_surface_concentrations.png')
         plt.show()
         
         
@@ -574,6 +590,8 @@ class Simulate():
             plt.xlabel('Time')
             plt.legend()
             plt.tight_layout()
+            if save:
+                plt.savefig(filename + '_total_output.png')
             plt.show()
         except:
             try: 
@@ -594,6 +612,8 @@ class Simulate():
                 plt.xlabel('Time')
                 plt.legend()
                 plt.tight_layout()
+                if save:
+                    plt.savefig(filename + '_total_output.png')
                 plt.show()
                 
             except:
@@ -601,12 +621,14 @@ class Simulate():
                 plt.xlabel('Time')
                 plt.legend()
                 plt.tight_layout()
+                if save:
+                    plt.savefig(filename + '_total_output.png')
                 plt.show()
                 
         #return fig
             
         
-    def plot_bulk_concs(self,cmap='viridis'):
+    def plot_bulk_concs(self,cmap='viridis',save=False):
         '''
         Plots heatmaps of the bulk concentration of each model component.
         y-axis is layer number, x-axis is timepoint
@@ -618,6 +640,10 @@ class Simulate():
 
         '''
         
+        # filename if saving is desired
+        if save:
+            filename = self.model.reaction_scheme.name
+
         n_comps = len(self.bulk_concs)
         
         # for each component, plot a heatmap plot
@@ -637,6 +663,8 @@ class Simulate():
             cb=plt.colorbar()
             cb.set_label(label='conc. / cm$^{-3}$',fontsize='large',size='large')
             plt.tight_layout()
+            if save:
+                plt.savefig(filename + f'_bulk_concentration_component_{i}.png')
             plt.show()
 
     def xy_data_total_number(self,components='all'):
