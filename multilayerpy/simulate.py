@@ -51,6 +51,95 @@ class Simulate():
         run the model. 
     data : multilayerpy.simulate.Data or np.ndarray
         Experimental data for use during model optimisation. 
+
+    custom_model_y_func : function, optional
+        A function which takes the model output as an argument and returns a custom model_y output to be used for 
+        fitting to data.
+
+        The function is called in this fashion for KM-SUB models:
+        model_y = custom_model_y_func(bulk_concs_dict,surf_concs_dict,layer_volume_array,layer_surf_area_array)
+
+        where:
+            bulk_concs_dict : dict
+                dictionary of bulk concentration arrays for each component. Key's are strings representing 
+                component numbers (e.g. bulk_concs_dict['1'] is the bulk concentration array for component 1).
+                The shape of an array from bulk_concs_dict is (number_of_layers,number_of_timepoints)
+
+            surf_concs_dict : dict
+                dictionary of surface concentrations for each component at each time point. Key's are strings representing 
+                component numbers (e.g. surf_concs_dict['1'] is the surface concentration array for component 1).
+            
+            layer_volume_array : numpy.array
+                The volume of each model layer.
+
+            layer_surf_area_array : numpy.array
+                The surface area of each model layer.
+
+        for KM-GAP models, the function is called slightly differently:
+
+            model_y = custom_model_y_func(bulk_concs_dict,surf_concs_dict,static_surf_concs_dict,Vt,At)
+            
+            where bulk_concs_dict and surf_concs_dict are the same as above and:
+                static_surf_concs_dict : dict
+                    dictionary of static surface concentrations for each component at each time point. Key's are strings representing 
+                    component numbers (e.g. static_surf_concs_dict['1'] is the static surface concentration array for component 1).
+                
+                Vt : numpy.array
+                    An array of model layer volumes over time with shape (number_of_layers, number_of_timepoints)
+
+                At : numpy.array
+                    An array of model layer surface areas over time with shape (number_of_layers, number_of_timepoints)
+    
+    name : str, optional
+        The name of the model. 
+
+    -----------------------------------------------
+    Adding a custom parameter evolution function after instantiating a Simulate object:
+
+        EXAMPLE 1:
+        # Changing the temperature after 30 s of simulation. No extra varying parameters.
+        
+        >>> import copy
+        >>> def param_evolution_func(t,y,param_dict,param_evolution_func_extra_vary_params=None):
+        >>>     # need to deepcopy the parameter dictionary first
+        >>>     param_dict = copy.deepcopy(param_dict)
+        >>>     
+        >>>     # half the temperature after 30 s
+        >>>     if t > 30:
+        >>>         param_dict['T'].value = param_dict['T'].value / 2.0
+        >>>     # return the new param_dict
+        >>>     return param_dict
+        >>>
+        >>> # now set the simulate object's param_evo_func (assuming Simulate object imported)
+        >>> Simulate.param_evo_func = param_evolution_func
+
+        
+        EXAMPLE 2:
+        # Changing the temperature after 30 s of simulation by a factor we want to fit.
+        
+        >>> # defining the temperature factor Parameter object
+        >>> t_factor = Parameter(0.5, vary=True, bounds=(0.1,0.8),name='Temperature factor')
+        >>>
+        >>> # create a list with the extra varying parameter (in this case, a list with 1 element)
+        >>> additional_parameters = [t_factor]
+        >>>
+        >>> import copy
+        >>> def param_evolution_func(t,y,param_dict,param_evolution_func_extra_vary_params=None):
+        >>>     # need to deepcopy the parameter dictionary first
+        >>>     param_dict = copy.deepcopy(param_dict)
+        >>>     
+        >>>     # multiply temperature by the t_factor defined in the extra varying parameters list after 30 s
+        >>>     if t > 30:
+        >>>         param_dict['T'].value = param_dict['T'].value * param_evolution_func_extra_vary_params[0]
+        >>>     # return the new param_dict
+        >>>     return param_dict
+        >>>
+        >>> # set the simulate object's param_evo_func (assuming Simulate object imported)
+        >>> Simulate.param_evo_func = param_evolution_func
+        >>>
+        >>> # set the simulate object's additional varying parameters list
+        >>> Simulate.param_evo_additional_params = additional_parameters
+
     '''
     
     def __init__(self, model, params_dict, data=None, custom_model_y_func=None, name='model'):
@@ -455,10 +544,15 @@ class Simulate():
         ----------
         norm : bool, optional
             Whether to normalise the model output. The default is False.
+
         data : np.ndarray, optional
             Data to plot with the model output. The default is None.
+
         comp_number : int, str or list, optional
             The component(s) of the model output to plot. The default is 'all'.
+
+        save : bool, optional
+            Whether to save the plots. 
 
         Returns
         -------
@@ -638,6 +732,9 @@ class Simulate():
         cmap : str, optional
             The colourmap supplied to matplotlib.pyplot.pcolormesh().
 
+        save : bool, optional
+            Whether to save the plots. 
+
         '''
         
         # filename if saving is desired
@@ -678,7 +775,7 @@ class Simulate():
         
         Parameters
         ----------
-        components : str or list, optional
+        components : int, str or list, optional
             The component number of the component of interest. Either one number
             for a single component output, a list of component numbers of interest
             or 'all' which outputs x-y data for all components.
@@ -782,7 +879,7 @@ class Simulate():
 
     def save_params_csv(self,filename='model_parameters.csv'):
         '''
-        Saves model parameters (name, value and bounds - if available) to a .csv file
+        Saves model parameters to a .csv file
         
         Parameters
         ----------
@@ -871,8 +968,10 @@ class Simulate():
             rp = None
         return rp
         
-    def set_mcmc_params(self,statistic='mean'):
-
+    def set_mcmc_params(self):
+        '''
+        Sets the model parameters to the mean values from the MCMC sampling run. 
+        '''
         no_mcmc = True
         for param in self.parameters.values():
             if param.stats is not None:
@@ -897,33 +996,41 @@ def initial_concentrations(model_type,bulk_conc_dict,surf_conc_dict,n_layers,
     ----------
     model_type : multilayerpy.build.ModelType
         The model type under consideration.
+
     bulk_conc: dict
         dict of initial bulk concentration of each component (key = component number)
+
     surf_conc: dict
         dict of initial surf concentration of each component (key = component number)
+
     n_layers: int
         number of model layers
+
     static_surf_conc_dict : dict, optional
         For KM-GAP models, the initial static-surface layer concentration needs to be
         supplied for each component.
+
     V : np.ndarray, optional
         The volume of each bulk layer. Used to calculate initial total number of
         molecules for KM-GAP models. 
+
     A : np.ndarray, optional
         The surface area of each bulk layer. Used to calculate initial total number of
         molecules for KM-GAP models. 
+
     parameter_dict : dict, optional
         dict of multilayerpy.build.Parameter objects. For calculation of initial
         number of molecules in each model layer for KM-GAP models. 
-    vol_fract : float or list, optional
+
+    vol_frac : float or list, optional
         The volume fraction of each model component. Supplied as a list of floats in 
         component number order. 
         
     returns
     ----------
     Y0 : np.ndarray
-        An array of length n_layers defining the initial concentration of each 
-        model component in the surface and bulk layers. Supplied to the ODE solver.
+        An array of length n_layers * n_components + n_components (KM-SUB) or n_layers * n_components + 2 * n_components (KM-GAP) 
+        defining the initial concentration of each model component in the surface and bulk layers. Supplied to the ODE solver.
     '''
     
     n_comps = len(bulk_conc_dict)
@@ -1084,19 +1191,29 @@ class Data():
             column 1 --> time (s)
             column 2 --> y_experiment
             column 3 (optional) --> y_error
-            column 4 (optional) --> particle radius
+            
     name : str, optional
         The name of the dataset.
+
     n_skipped_rows : int, optional
         The number of rows to skip when reading in the data from a file. 
+
     norm : bool, optional
         Whether or not to normalise the input data.
+
     norm_index : int, optional
         The y_experiment column index to normalise data to. Assumed to be the
         first (0) index unless specified. 
+
+    delimiter : str, optional
+        The delimiter to be supplied to the numpy.genfromtxt function used to read the data.
+
+    normalised : bool, optional
+        If the data are already normalised, set this to True.
     '''
     
-    def __init__(self,data,name='',n_skipped_rows=0,norm=False,norm_index=0,delimiter='',normalised=False):
+    def __init__(self,data,name='',n_skipped_rows=0,norm=False,norm_index=0,delimiter='',
+        normalised=False):
         
         
         self._normed=False
@@ -1163,7 +1280,10 @@ class Data():
             
     def norm(self,norm_index=0):
         '''
-        Normalise the data
+        Normalises the data.
+
+        norm_index : int
+            The y data index to normalise the rest of the y data to. 
         '''
         if self.normalised == True:
             pass
@@ -1174,7 +1294,7 @@ class Data():
         
     def unnorm(self):
         '''
-        un-normalise the data
+        un-normalises the data.
         '''
     
         if not self.normalised:

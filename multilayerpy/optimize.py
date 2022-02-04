@@ -47,34 +47,37 @@ class Optimizer():
     ----------
     simulate_object : multilayerpy.simulate.Simulate 
         A Simulate object created in the model building process.
+
     cost : str, optional
         The cost function to use in the optimisation process.
         Current option is mean-squared error 'MSE'.
+
     cfunc : func, optional
-        A function which takes in data (in the Data object format), model_y
-        values and the rp parameter supplied to the cost_func method. 
+        A function which takes in data (in the Data object format) and model_y
+        values supplied to the cost_func method. 
         Returns the value of the cost function. Lower values = better fit.
+
     param_evolution_func : func, optional
-        A function which is called f(t,y,param_dict,param_evolution_func_extra_vary_params).
+        A function which is called f(t,y,param_dict,param_evolution_func_extra_vary_params). 
+
+        This is taken from the supplied Simulate object.
+
         It returns the param_dict and allows for model parameters to evolve
         over time, values of y (array of ODE solutions evaluated at time t).
         Parameters can be parameterised with extra parameters which themselves can
         vary. See param_evolution_func_extra_vary_params below. 
+
     param_evolution_func_extra_vary_params : list, optional
         List of Parameter objects which represent additional parameters used
         to evolve/parameterise model input parameters. These values can be optimised
         during model optimisation. Supplied to the param_evolution_func function.
-    lnprior_func : func, optional
-        A custom log-prior function for model parameters. Takes in self and array
-        of varying parameters as arugments. 
-    lnlike_func : func, optional
-        A custom log-likelihood function which takes y_experiment, y_model and 
-        (optionally) y_err and returns the log-likelihood of the fit. 
+
+        This is taken from the supplied Simulate object.
+
     '''
     
     def __init__(self,simulate_object,cost='MSE',cfunc=None,param_evolution_func=None,
-                 param_evolution_func_extra_vary_params=None,lnprior_func=None,
-                 lnlike_func=None,custom_model_y_func=None):
+                 param_evolution_func_extra_vary_params=None,custom_model_y_func=None):
         
         
         self.simulate = simulate_object
@@ -92,8 +95,6 @@ class Optimizer():
         self.cost_func_val = None
         self.param_evolution_func = copy.deepcopy(self.simulate.param_evo_func)
         self.param_evolution_func_extra_vary_params = self.simulate.param_evo_additional_params
-        self.lnprior_func = lnlike_func
-        self.lnlike_func = lnlike_func
         self.custom_model_y_func = simulate_object.custom_model_y_func
         self._sampled_xy_data = []
         
@@ -109,8 +110,6 @@ class Optimizer():
         Will calculate the cost function used in the optimisation process. 
         A custom cost function will be used if suppled via the cfunc attribute 
         of the Optimizer object. 
-        
-        If rp and model_y provided, will calculate a weighted cost function. 
 
         Parameters
         ----------
@@ -178,7 +177,7 @@ class Optimizer():
     
     def lnlike(self,vary_params):
         '''
-        Calculate the log-likelihood of the model-data fit for MCMC sampling.
+        Calculates the log-likelihood of the model-data fit for MCMC sampling.
         
         Parameters
         ----------
@@ -413,14 +412,21 @@ class Optimizer():
         ----------
         weighted : bool, optional
             Whether to weight the fit to datapoint uncertainties (requires the data to have uncertainties)
+
         method : str, optional
             Algorithm to be used. 'least_squares' (local) or 'differential_evolution' (global). 
-            The default is 'least_squares'.
+            The default is 'least_squares' Nelder-Mead (simplex).
+
         component_no : int, optional
             The model component to fit to the data. The default is '1'.
+
         n_workers : int, optional
             Number of cores to use (only for 'differential_evolution' method). 
             The default is 1.
+
+        popsize : int, optional
+            The multiplyer used by the differential_evolution implementation in SciPy. 
+            The total population size of parameter sets in the algorithm is len(varying_parameters) * popsize. 
             
         returns
         ----------
@@ -428,8 +434,9 @@ class Optimizer():
             The optimization result represented as a OptimizeResult object.
             Important attributes are: x the solution array, success a Boolean
             flag indicating if the optimizer exited successfully and message
-            which describes the cause of the termination. See the documentation
-            for more details: 
+            which describes the cause of the termination. 
+
+            See the documentationfor more details: 
             https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.differential_evolution.html
         
         '''
@@ -483,19 +490,24 @@ class Optimizer():
             ----------
             varying_param_vals : array-type
                 An array of varying model parameters to be optimised.
+
             varying_param_keys : list
                 List of parameter dictionary keys corresponding to the parameter
                 represented in varying_param_vals.
+
             sim : multilayerpy.simulate.Simulate 
                 The simulate object to be optimised.
+
             component_no : int, optional
                 The component number of the model component to fit to. 
                 i.e. If the experimental data corresponds to component number 4,
                 fit to component_no = 4.
+
             extra_vary_params_start_ind : int, optional
                 The starting index for the 'extra' varying parameters 
                 (not included in the parameter dictionary) used in the parameter
                 evolution function. 
+
             fit_particle_radius : bool, optional
                 Whether or not to fit to particle radius data. 
 
@@ -718,16 +730,19 @@ class Optimizer():
         
     def sample(self,samples,n_walkers=100, n_burn=0,pool=None,**kwargs):
         '''
-        
+        Runs the MCMC sampling procedure using the emcee package. 
 
         Parameters
         ----------
         samples : int
             The number of MCMC samples (steps) to take.
+
         n_walkers : int, optional
             The number of walkers to initialise for MCMC sampling.
+
         n_burn : int, optional
             Number of burn-in steps before the production MCMC run. 
+
         pool : optional
             An object with a map method that follows the same calling sequence
             as the built-in map function. This is generally used to compute the
@@ -813,6 +828,14 @@ class Optimizer():
         '''
         Plots the MCMC chains saved during the sampling run. Each plot is the 
         parameter value at each sampling iteration.
+        
+        Parameters
+        ----------
+        discard : int, optional
+            The number of setps to burn-in (discard) from the chains before plotting.
+
+        thin : int, optional
+            Only take every 'thin' number of samples from the chain (called thinning).
 
         Returns
         -------
@@ -848,6 +871,7 @@ class Optimizer():
     def plot_chain_outputs(self):
         '''
         Plots the experimental data with n_samples number of model runs from MCMC sampling. 
+        Requires that a sample of model outputs from the MCMC chains has been taken using Optimizer.get_chain_outputs.
 
         Returns
         -------
@@ -895,6 +919,36 @@ class Optimizer():
 
     def get_chain_outputs(self, n_samples='all', parallel=False,component_number=1,n_burn=0,thin=1,
                             override_stop_run=False):
+        '''
+        Runs the model with parameters randomly sampled from the MCMC chains created during the MCMC sampling procedure. 
+        Outputs are returned as a numpy array. 
+
+        Parameters
+        ----------
+        n_samples : int or 'all', optional
+            The number of random samples to take from the MCMC chains. Default is 'all' of the samples.
+
+        parallel : bool, optional
+            Run each sample in parallel across all processors. 
+            WARNING: if a parameter evolution function is used by the Simulate object, set this to False. Otherwise the sampling freezes. 
+
+        component_number : int, optional
+            The component number of the model component to be used as the model output. 
+        
+        n_burn : int, optional
+            The number of initial steps to burn (discard) in the MCMC chain.
+
+        thin : int, optional
+            Use every 'thin' number of samples along the MCMC chains (called thinning). 
+
+        override_stop_run : bool, optional
+            Overrides stopping running this function if there is already a set of model runs sampled from the MCMC procedure.
+
+        Returns
+        -------
+        xy_array_output : list
+            A list of model xy outputs (first column = time, second column = model output). 
+        '''
 
 
         # do an initial check for chains that have already been sampled
@@ -992,6 +1046,10 @@ class Optimizer():
         return xy_array
 
     def _update_param_stats(self,sampler,n_burn,thin):
+
+        '''
+        Updates the Parameter.stats dictionary after MCMC sampling.
+        '''
 
         sim = self.simulate
 

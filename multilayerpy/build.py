@@ -26,10 +26,11 @@
 import numpy as np
 import os
 from datetime import datetime
+import multilayerpy
 
 class ModelType:
     '''
-    A class which will contain information about the model type
+    A class which contains information about the model type
     
     Parameters
     ----------
@@ -65,12 +66,15 @@ class ReactionScheme:
     ----------
     model_type_object : multilayerpy.Build.ModelType
         Defines the model type necessary for naming conventions.
+
     name : str
         Name of the reaction scheme
+
     reactants : list
         List of tuples defining which components react with which.
         
-        e.g. >>> reactants = [(1,2),(1,3)]
+        EXAMPLE: 
+        >>> reactants = [(1,2),(1,3)]
         
         This states that the first reaction is between component 1 and 2 and 
         the second reaction is between component 1 and 3.
@@ -78,25 +82,28 @@ class ReactionScheme:
     products : list
         List of tuples defining which components are reaction products.
         
-        e.g. >>> products = [(3,),(4,)]
+        EXAMPLE: 
+        >>> products = [(3,),(4,)]
         
         This states that component 3 is a product of reaction 1 and component 4
         is a product of reaction 2.
+
     reactant_stoich : list
         List of tuples which define the stoichiometric coefficients (if any) 
         applied to each reactant. (Optional).
         
-        e.g.
+        EXAMPLE:
         >>> reactants = [(1,2)]
         >>> reactant_stoich = [(0.5,1.0)]
         
         This states that for reaction 1, reactant 1 reacts with reactant 2 and
         their stoichiometric coefficients are 0.5 and 1.0, respectively.
+
     product_stoich : list
         List of tuples which define the stoichiometric coefficients (if any) 
         applied to each product. (Optional).
         
-        e.g.
+        EXAMPLE:
         >>> products = [(3,4)]
         >>> reactant_stoich = [(0.5,0.5)]
         
@@ -199,7 +206,7 @@ class ReactionScheme:
         
     def display(self):
         '''
-        Function which prints the reaction scheme to the console
+        Function which prints the reaction scheme to the console. Not including stoichiometry. 
 
         '''
         strings = ['#########################################################',
@@ -231,22 +238,34 @@ class ReactionScheme:
     
 class ModelComponent:
     '''
-    Model component class representing a model component and key properties.
+    Model component class representing a model component (chemical) and key properties.
     
     Parameters
     ----------
     component_number : int
         The number given to the component. This is how the component is referred
         to in the model building process.
+
     reaction_scheme : multilayerpy.build.ReactionScheme
         The reaction scheme object created for a model system. 
+
     name : str 
         The name of the model component. 
+
     gas : bool
         Whether or not the component is found in the gas phase (volatile)
+
     comp_dependent_adsorption : bool
         Whether the adsorption of this component is dependent on the composition
         of the particle surface. 
+
+    EXAMPLE: 
+    # ozone as component number 1, no surface composition-dependent adsorption:
+
+    >>> from multilayerpy.build import ModelComponent
+
+    >>> ozone = ModelComponent(1, reaction_scheme, name='ozone', gas=True)
+
     '''
     
     def __init__(self,component_number,reaction_scheme,
@@ -444,7 +463,7 @@ class DiffusionRegime():
     diff_dict : dict
         A dictionary defining how each component's diffusivity depends on composition.
         
-        e.g.
+        EXAMPLE:
         >>> diff_dict = {'1' : (2,3),
                          '2' : None,
                          '3' : None}
@@ -509,6 +528,12 @@ class DiffusionRegime():
             
         
     def __call__(self):
+        '''
+        Constructs the diffusion regime by making strings representing the rate of diffusion 
+        of model components between bulk layers and between the bulk and surface layers. 
+
+        The diffusion regime will then be ready to be used in multilayerpy.build.ModelBuilder. 
+        '''
         
         # for each component write D and kbb, kbs string
         # Db kbb will be an array
@@ -686,7 +711,7 @@ class DiffusionRegime():
                 kssb_string_list.append(kssb_string)
                 
                 
-                # kbb slightly different in km-gap
+                # kbb slightly different definition in km-gap
                 kbb_string = f'kbb_{i+1} = (2 * Db_{i+1}_arr[:-1]) / (layer_thick[:-1] + layer_thick[1:])'
                 # tag on kbb for the core layer
                 core_kbb_string = f'kbb_core_{i+1} = (2 * Db_{i+1}_arr[-1]) / layer_thick[-1] '
@@ -725,9 +750,11 @@ class ModelBuilder():
     ----------
     reaction_scheme : multilayerpy.build.ReactionScheme
         The reaction scheme used in the model.
+
     model_components_dict : dict
         A dictionary of multilayer.build.Parameter objects representing each 
         model parameter.
+
     diffusion_regime : multilayerpy.build.DiffusionRegime
         The diffusion regime used in the model. 
     '''
@@ -738,22 +765,24 @@ class ModelBuilder():
        self.reaction_scheme = reaction_scheme
        
        self.model_components = model_components_dict
+       # make sure the model components dictionary is actually a dictionary
+       assert type(model_components_dict) == dict, "The model_components_dict is not a dictionary."
        
-       self.diffusion_regime = diffusion_regime # error if not dict
+       self.diffusion_regime = diffusion_regime 
        
        self.geometry = reaction_scheme.model_type.geometry
        
-       self.model_type = reaction_scheme.model_type.model_type # error if not in accepted types
+       self.model_type = reaction_scheme.model_type.model_type 
+       assert self.model_type.lower() in ['km-sub','km-gap'], f"The model type '{self.model_type.lower()}'' is not in the accepted model types:\n['km-sub','km-gap']"
        
        # a SET of strings with names of required parameters
-       #Build this
        self.req_params = set([])
        
        for s in diffusion_regime.req_diff_params:
            self.req_params.add(s)
        
        # list of output strings for final file write and coupling to 
-       # compartmental models
+       # compartmental models (future dev)
        self.file_string_list = []
        
        self.filename = None
@@ -773,8 +802,10 @@ class ModelBuilder():
         ----------
         name_extention : str
             An extra tag added to the model filename.
+
         date_tag : bool
             Whether to add a date tag to the filename with today's date.
+
         use_scaled_k_surf : bool
             Whether to use a scale factor to convert from bulk second order rate
             constants to surface second order rate constants. 
@@ -795,7 +826,7 @@ class ModelBuilder():
         extention = name_extention
         
         now = datetime.now()
-        date = now.strftime('%Y-%m-%d')
+        date = now.strftime('%d-%m-%Y (day-month-year)')
         
         mod_type = self.model_type
         rxn_name = self.reaction_scheme.name
@@ -804,8 +835,8 @@ class ModelBuilder():
         # make T a required param
         self.req_params.add('T')
         
-        heading_strings = ['###############################################\n',
-                           f'# A {mod_type} model constructed using MultilayerPy\n',
+        heading_strings = ['#================================================\n',
+                           f'# A {mod_type} model constructed using MultilayerPy version {multilayerpy.__version__}\n',
                            '# MultilayerPy - build, run and optimise kinetic multi-layer models for\n# aerosol particles and films.\n\n',
                            '# MultilayerPy is released under the GNU General Public License v3.0\n',
                            '\n',
@@ -815,7 +846,7 @@ class ModelBuilder():
                            f'# Geometry: {self.geometry}\n',
                            f'# Number of model components: {len(self.model_components)}\n',
                            f'# Diffusion regime: {self.diffusion_regime.regime}\n',
-                           '###############################################\n',
+                           '#================================================\n',
                            '\n',
                            'import numpy as np']
         
@@ -1550,18 +1581,22 @@ class ModelBuilder():
    
 class Parameter():
     '''
-    A class which will define a parameter object.
+    A class which defines a parameter object along with its value, name, bounds (optional) and stats.
     
     Parameters
     ----------
     value : float
         The numerical value of the parameter
+
     name : str
         The name of the parameter.
+
     bounds : tup or list
         A tuple or list defining the lower and upper bounds for the parameter.
+
     vary : bool
         Whether this parameter is to vary during model optimisation.
+
     stats : dict
         A dictionary which holds statistics derived from MCMC sampling.
 
@@ -1570,9 +1605,13 @@ class Parameter():
         
         self.name = name
         self.bounds = bounds   
+        assert len(bounds) == 2, f"There are {len(bounds)} numbers supplied to bounds, there needs to be 2."
         self.value = value
         self.vary = vary
         self.stats = None
+
+        if bounds is not None:
+            assert vary == True, "Bounds have been supplied but the parameter has not been set to vary."
        
         
 
