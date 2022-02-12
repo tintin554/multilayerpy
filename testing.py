@@ -269,6 +269,24 @@ class TestModelConstruction(unittest.TestCase):
             violation = True
         self.assertEqual(violation,False)
 
+    def test_layer_thick_calcs(self):
+
+        mt = ModelType('km-sub','spherical')
+
+        V, A, r = make_layers(mt,10,10.0) # 10 layers with 1 µm thick
+
+        v = V[-1]
+
+        r_val = np.cbrt(3*v / (4 * np.pi)) # denominator needs brackets
+
+        # check r val is 1 µm
+        self.assertEqual(r_val,1.0)
+
+        # check r val for 2nd shell is the same (km-sub no variation in rvals)
+        v2 = V[-2] + v
+        rshell_2 = np.cbrt(3*v2 / (4 * np.pi))
+
+        self.assertEqual(rshell_2 - r_val, 1.0)
 
 if __name__ == "__main__":
     unittest.main()
