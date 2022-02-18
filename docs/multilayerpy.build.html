@@ -1,0 +1,355 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<html><head><title>Python: module multilayerpy.build</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+</head><body bgcolor="#f0f0f8">
+
+<table width="100%" cellspacing=0 cellpadding=2 border=0 summary="heading">
+<tr bgcolor="#7799ee">
+<td valign=bottom>&nbsp;<br>
+<font color="#ffffff" face="helvetica, arial">&nbsp;<br><big><big><strong><a href="multilayerpy.html"><font color="#ffffff">multilayerpy</font></a>.build</strong></big></big></font></td
+></tr></table>
+    <p><tt>@author:&nbsp;Adam&nbsp;Milsom<br>
+&nbsp;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;MultilayerPy&nbsp;-&nbsp;build,&nbsp;run&nbsp;and&nbsp;optimise&nbsp;kinetic&nbsp;multi-layer&nbsp;models&nbsp;for&nbsp;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;aerosol&nbsp;particles&nbsp;and&nbsp;films.<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;Copyright&nbsp;(C)&nbsp;2021&nbsp;&nbsp;Adam&nbsp;Milsom<br>
+&nbsp;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;This&nbsp;program&nbsp;is&nbsp;free&nbsp;software:&nbsp;you&nbsp;can&nbsp;redistribute&nbsp;it&nbsp;and/or&nbsp;modify<br>
+&nbsp;&nbsp;&nbsp;&nbsp;it&nbsp;under&nbsp;the&nbsp;terms&nbsp;of&nbsp;the&nbsp;GNU&nbsp;General&nbsp;Public&nbsp;License&nbsp;as&nbsp;published&nbsp;by<br>
+&nbsp;&nbsp;&nbsp;&nbsp;the&nbsp;Free&nbsp;Software&nbsp;Foundation,&nbsp;either&nbsp;version&nbsp;3&nbsp;of&nbsp;the&nbsp;License,&nbsp;or<br>
+&nbsp;&nbsp;&nbsp;&nbsp;(at&nbsp;your&nbsp;option)&nbsp;any&nbsp;later&nbsp;version.<br>
+&nbsp;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;This&nbsp;program&nbsp;is&nbsp;distributed&nbsp;in&nbsp;the&nbsp;hope&nbsp;that&nbsp;it&nbsp;will&nbsp;be&nbsp;useful,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;but&nbsp;WITHOUT&nbsp;ANY&nbsp;WARRANTY;&nbsp;without&nbsp;even&nbsp;the&nbsp;implied&nbsp;warranty&nbsp;of<br>
+&nbsp;&nbsp;&nbsp;&nbsp;MERCHANTABILITY&nbsp;or&nbsp;FITNESS&nbsp;FOR&nbsp;A&nbsp;PARTICULAR&nbsp;PURPOSE.&nbsp;&nbsp;See&nbsp;the<br>
+&nbsp;&nbsp;&nbsp;&nbsp;GNU&nbsp;General&nbsp;Public&nbsp;License&nbsp;for&nbsp;more&nbsp;details.<br>
+&nbsp;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;You&nbsp;should&nbsp;have&nbsp;received&nbsp;a&nbsp;copy&nbsp;of&nbsp;the&nbsp;GNU&nbsp;General&nbsp;Public&nbsp;License<br>
+&nbsp;&nbsp;&nbsp;&nbsp;along&nbsp;with&nbsp;this&nbsp;program.&nbsp;&nbsp;If&nbsp;not,&nbsp;see&nbsp;&lt;https://www.gnu.org/licenses/&gt;.</tt></p>
+<p>
+<table width="100%" cellspacing=0 cellpadding=2 border=0 summary="section">
+<tr bgcolor="#aa55cc">
+<td colspan=3 valign=bottom>&nbsp;<br>
+<font color="#ffffff" face="helvetica, arial"><big><strong>Modules</strong></big></font></td></tr>
+    
+<tr><td bgcolor="#aa55cc"><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</tt></td><td>&nbsp;</td>
+<td width="100%"><table width="100%" summary="list"><tr><td width="25%" valign=top><a href="multilayerpy.html">multilayerpy</a><br>
+</td><td width="25%" valign=top><a href="numpy.html">numpy</a><br>
+</td><td width="25%" valign=top><a href="os.html">os</a><br>
+</td><td width="25%" valign=top></td></tr></table></td></tr></table><p>
+<table width="100%" cellspacing=0 cellpadding=2 border=0 summary="section">
+<tr bgcolor="#ee77aa">
+<td colspan=3 valign=bottom>&nbsp;<br>
+<font color="#ffffff" face="helvetica, arial"><big><strong>Classes</strong></big></font></td></tr>
+    
+<tr><td bgcolor="#ee77aa"><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</tt></td><td>&nbsp;</td>
+<td width="100%"><dl>
+<dt><font face="helvetica, arial"><a href="builtins.html#object">builtins.object</a>
+</font></dt><dd>
+<dl>
+<dt><font face="helvetica, arial"><a href="multilayerpy.build.html#DiffusionRegime">DiffusionRegime</a>
+</font></dt><dt><font face="helvetica, arial"><a href="multilayerpy.build.html#ModelBuilder">ModelBuilder</a>
+</font></dt><dt><font face="helvetica, arial"><a href="multilayerpy.build.html#ModelComponent">ModelComponent</a>
+</font></dt><dt><font face="helvetica, arial"><a href="multilayerpy.build.html#ModelType">ModelType</a>
+</font></dt><dt><font face="helvetica, arial"><a href="multilayerpy.build.html#Parameter">Parameter</a>
+</font></dt><dt><font face="helvetica, arial"><a href="multilayerpy.build.html#ReactionScheme">ReactionScheme</a>
+</font></dt></dl>
+</dd>
+</dl>
+ <p>
+<table width="100%" cellspacing=0 cellpadding=2 border=0 summary="section">
+<tr bgcolor="#ffc8d8">
+<td colspan=3 valign=bottom>&nbsp;<br>
+<font color="#000000" face="helvetica, arial"><a name="DiffusionRegime">class <strong>DiffusionRegime</strong></a>(<a href="builtins.html#object">builtins.object</a>)</font></td></tr>
+    
+<tr bgcolor="#ffc8d8"><td rowspan=2><tt>&nbsp;&nbsp;&nbsp;</tt></td>
+<td colspan=2><tt><a href="#DiffusionRegime">DiffusionRegime</a>(model_type,&nbsp;model_components_dict,&nbsp;regime='vignes',&nbsp;diff_dict=None)<br>
+&nbsp;<br>
+Calling&nbsp;this&nbsp;will&nbsp;build&nbsp;the&nbsp;diffusion&nbsp;regime&nbsp;and&nbsp;return&nbsp;a&nbsp;list&nbsp;of&nbsp;strings<br>
+defining&nbsp;the&nbsp;composition-dependent&nbsp;(or&nbsp;not)&nbsp;diffusion&nbsp;evolution&nbsp;for&nbsp;each&nbsp;<br>
+component&nbsp;and&nbsp;the&nbsp;definition&nbsp;of&nbsp;kbb&nbsp;for&nbsp;each&nbsp;component.<br>
+&nbsp;<br>
+Parameters<br>
+----------<br>
+model_type&nbsp;:&nbsp;multilayerpy.build.<a href="#ModelType">ModelType</a><br>
+&nbsp;&nbsp;&nbsp;&nbsp;Defines&nbsp;the&nbsp;model&nbsp;type&nbsp;being&nbsp;considered.<br>
+model_components_dict&nbsp;:&nbsp;dict<br>
+&nbsp;&nbsp;&nbsp;&nbsp;A&nbsp;dictionary&nbsp;of&nbsp;multilayer.build.<a href="#Parameter">Parameter</a>&nbsp;objects&nbsp;representing&nbsp;each&nbsp;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;model&nbsp;parameter.<br>
+regime&nbsp;:&nbsp;str<br>
+&nbsp;&nbsp;&nbsp;&nbsp;Which&nbsp;diffusion&nbsp;regime&nbsp;to&nbsp;use.&nbsp;<br>
+diff_dict&nbsp;:&nbsp;dict<br>
+&nbsp;&nbsp;&nbsp;&nbsp;A&nbsp;dictionary&nbsp;defining&nbsp;how&nbsp;each&nbsp;component's&nbsp;diffusivity&nbsp;depends&nbsp;on&nbsp;composition.<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;EXAMPLE:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&gt;&gt;&gt;&nbsp;diff_dict&nbsp;=&nbsp;{'1'&nbsp;:&nbsp;(2,3),<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'2'&nbsp;:&nbsp;None,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'3'&nbsp;:&nbsp;None}<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;This&nbsp;states&nbsp;that&nbsp;component&nbsp;1&nbsp;diffusivity&nbsp;depends&nbsp;on&nbsp;the&nbsp;amount&nbsp;of&nbsp;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;component&nbsp;2&nbsp;and&nbsp;3&nbsp;and&nbsp;that&nbsp;the&nbsp;diffusivities&nbsp;of&nbsp;component&nbsp;2&nbsp;and&nbsp;3&nbsp;are<br>
+&nbsp;&nbsp;&nbsp;&nbsp;not&nbsp;composition&nbsp;dependent.<br>&nbsp;</tt></td></tr>
+<tr><td>&nbsp;</td>
+<td width="100%">Methods defined here:<br>
+<dl><dt><a name="DiffusionRegime-__call__"><strong>__call__</strong></a>(self)</dt><dd><tt>Constructs&nbsp;the&nbsp;diffusion&nbsp;regime&nbsp;by&nbsp;making&nbsp;strings&nbsp;representing&nbsp;the&nbsp;rate&nbsp;of&nbsp;diffusion&nbsp;<br>
+of&nbsp;model&nbsp;components&nbsp;between&nbsp;bulk&nbsp;layers&nbsp;and&nbsp;between&nbsp;the&nbsp;bulk&nbsp;and&nbsp;surface&nbsp;layers.&nbsp;<br>
+&nbsp;<br>
+The&nbsp;diffusion&nbsp;regime&nbsp;will&nbsp;then&nbsp;be&nbsp;ready&nbsp;to&nbsp;be&nbsp;used&nbsp;in&nbsp;multilayerpy.build.<a href="#ModelBuilder">ModelBuilder</a>.</tt></dd></dl>
+
+<dl><dt><a name="DiffusionRegime-__init__"><strong>__init__</strong></a>(self, model_type, model_components_dict, regime='vignes', diff_dict=None)</dt><dd><tt>Initialize&nbsp;self.&nbsp;&nbsp;See&nbsp;help(type(self))&nbsp;for&nbsp;accurate&nbsp;signature.</tt></dd></dl>
+
+<hr>
+Data descriptors defined here:<br>
+<dl><dt><strong>__dict__</strong></dt>
+<dd><tt>dictionary&nbsp;for&nbsp;instance&nbsp;variables&nbsp;(if&nbsp;defined)</tt></dd>
+</dl>
+<dl><dt><strong>__weakref__</strong></dt>
+<dd><tt>list&nbsp;of&nbsp;weak&nbsp;references&nbsp;to&nbsp;the&nbsp;object&nbsp;(if&nbsp;defined)</tt></dd>
+</dl>
+</td></tr></table> <p>
+<table width="100%" cellspacing=0 cellpadding=2 border=0 summary="section">
+<tr bgcolor="#ffc8d8">
+<td colspan=3 valign=bottom>&nbsp;<br>
+<font color="#000000" face="helvetica, arial"><a name="ModelBuilder">class <strong>ModelBuilder</strong></a>(<a href="builtins.html#object">builtins.object</a>)</font></td></tr>
+    
+<tr bgcolor="#ffc8d8"><td rowspan=2><tt>&nbsp;&nbsp;&nbsp;</tt></td>
+<td colspan=2><tt><a href="#ModelBuilder">ModelBuilder</a>(reaction_scheme,&nbsp;model_components_dict,&nbsp;diffusion_regime)<br>
+&nbsp;<br>
+An&nbsp;<a href="builtins.html#object">object</a>&nbsp;which&nbsp;constructs&nbsp;the&nbsp;model&nbsp;file&nbsp;from&nbsp;the&nbsp;reaction&nbsp;scheme,&nbsp;list<br>
+of&nbsp;model&nbsp;components&nbsp;and&nbsp;a&nbsp;diffusion&nbsp;regime.<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<br>
+Parameters<br>
+----------<br>
+reaction_scheme&nbsp;:&nbsp;multilayerpy.build.<a href="#ReactionScheme">ReactionScheme</a><br>
+&nbsp;&nbsp;&nbsp;&nbsp;The&nbsp;reaction&nbsp;scheme&nbsp;used&nbsp;in&nbsp;the&nbsp;model.<br>
+&nbsp;<br>
+model_components_dict&nbsp;:&nbsp;dict<br>
+&nbsp;&nbsp;&nbsp;&nbsp;A&nbsp;dictionary&nbsp;of&nbsp;multilayer.build.<a href="#Parameter">Parameter</a>&nbsp;objects&nbsp;representing&nbsp;each&nbsp;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;model&nbsp;parameter.<br>
+&nbsp;<br>
+diffusion_regime&nbsp;:&nbsp;multilayerpy.build.<a href="#DiffusionRegime">DiffusionRegime</a><br>
+&nbsp;&nbsp;&nbsp;&nbsp;The&nbsp;diffusion&nbsp;regime&nbsp;used&nbsp;in&nbsp;the&nbsp;model.<br>&nbsp;</tt></td></tr>
+<tr><td>&nbsp;</td>
+<td width="100%">Methods defined here:<br>
+<dl><dt><a name="ModelBuilder-__init__"><strong>__init__</strong></a>(self, reaction_scheme, model_components_dict, diffusion_regime)</dt><dd><tt>Initialize&nbsp;self.&nbsp;&nbsp;See&nbsp;help(type(self))&nbsp;for&nbsp;accurate&nbsp;signature.</tt></dd></dl>
+
+<dl><dt><a name="ModelBuilder-build"><strong>build</strong></a>(self, name_extention='', date_tag=False, use_scaled_k_surf=False, **kwargs)</dt><dd><tt>Builds&nbsp;the&nbsp;model&nbsp;and&nbsp;saves&nbsp;it&nbsp;to&nbsp;a&nbsp;separate&nbsp;.py&nbsp;file<br>
+Different&nbsp;for&nbsp;different&nbsp;model&nbsp;types&nbsp;<br>
+&nbsp;<br>
+Parameters<br>
+----------<br>
+name_extention&nbsp;:&nbsp;str<br>
+&nbsp;&nbsp;&nbsp;&nbsp;An&nbsp;extra&nbsp;tag&nbsp;added&nbsp;to&nbsp;the&nbsp;model&nbsp;filename.<br>
+&nbsp;<br>
+date_tag&nbsp;:&nbsp;bool<br>
+&nbsp;&nbsp;&nbsp;&nbsp;Whether&nbsp;to&nbsp;add&nbsp;a&nbsp;date&nbsp;tag&nbsp;to&nbsp;the&nbsp;filename&nbsp;with&nbsp;today's&nbsp;date.<br>
+&nbsp;<br>
+use_scaled_k_surf&nbsp;:&nbsp;bool<br>
+&nbsp;&nbsp;&nbsp;&nbsp;Whether&nbsp;to&nbsp;use&nbsp;a&nbsp;scale&nbsp;factor&nbsp;to&nbsp;convert&nbsp;from&nbsp;bulk&nbsp;second&nbsp;order&nbsp;rate<br>
+&nbsp;&nbsp;&nbsp;&nbsp;constants&nbsp;to&nbsp;surface&nbsp;second&nbsp;order&nbsp;rate&nbsp;constants.&nbsp;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<br>
+returns<br>
+----------<br>
+Saves&nbsp;a&nbsp;.py&nbsp;file&nbsp;in&nbsp;the&nbsp;current&nbsp;working&nbsp;directory&nbsp;containing&nbsp;the&nbsp;model&nbsp;<br>
+code&nbsp;defining&nbsp;the&nbsp;system&nbsp;of&nbsp;ODEs&nbsp;to&nbsp;be&nbsp;solved.</tt></dd></dl>
+
+<hr>
+Data descriptors defined here:<br>
+<dl><dt><strong>__dict__</strong></dt>
+<dd><tt>dictionary&nbsp;for&nbsp;instance&nbsp;variables&nbsp;(if&nbsp;defined)</tt></dd>
+</dl>
+<dl><dt><strong>__weakref__</strong></dt>
+<dd><tt>list&nbsp;of&nbsp;weak&nbsp;references&nbsp;to&nbsp;the&nbsp;object&nbsp;(if&nbsp;defined)</tt></dd>
+</dl>
+</td></tr></table> <p>
+<table width="100%" cellspacing=0 cellpadding=2 border=0 summary="section">
+<tr bgcolor="#ffc8d8">
+<td colspan=3 valign=bottom>&nbsp;<br>
+<font color="#000000" face="helvetica, arial"><a name="ModelComponent">class <strong>ModelComponent</strong></a>(<a href="builtins.html#object">builtins.object</a>)</font></td></tr>
+    
+<tr bgcolor="#ffc8d8"><td rowspan=2><tt>&nbsp;&nbsp;&nbsp;</tt></td>
+<td colspan=2><tt><a href="#ModelComponent">ModelComponent</a>(component_number,&nbsp;reaction_scheme,&nbsp;name=None,&nbsp;gas=False,&nbsp;comp_dependent_adsorption=False)<br>
+&nbsp;<br>
+Model&nbsp;component&nbsp;class&nbsp;representing&nbsp;a&nbsp;model&nbsp;component&nbsp;(chemical)&nbsp;and&nbsp;key&nbsp;properties.<br>
+&nbsp;<br>
+Parameters<br>
+----------<br>
+component_number&nbsp;:&nbsp;int<br>
+&nbsp;&nbsp;&nbsp;&nbsp;The&nbsp;number&nbsp;given&nbsp;to&nbsp;the&nbsp;component.&nbsp;This&nbsp;is&nbsp;how&nbsp;the&nbsp;component&nbsp;is&nbsp;referred<br>
+&nbsp;&nbsp;&nbsp;&nbsp;to&nbsp;in&nbsp;the&nbsp;model&nbsp;building&nbsp;process.<br>
+&nbsp;<br>
+reaction_scheme&nbsp;:&nbsp;multilayerpy.build.<a href="#ReactionScheme">ReactionScheme</a><br>
+&nbsp;&nbsp;&nbsp;&nbsp;The&nbsp;reaction&nbsp;scheme&nbsp;<a href="builtins.html#object">object</a>&nbsp;created&nbsp;for&nbsp;a&nbsp;model&nbsp;system.&nbsp;<br>
+&nbsp;<br>
+name&nbsp;:&nbsp;str&nbsp;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;The&nbsp;name&nbsp;of&nbsp;the&nbsp;model&nbsp;component.&nbsp;<br>
+&nbsp;<br>
+gas&nbsp;:&nbsp;bool<br>
+&nbsp;&nbsp;&nbsp;&nbsp;Whether&nbsp;or&nbsp;not&nbsp;the&nbsp;component&nbsp;is&nbsp;found&nbsp;in&nbsp;the&nbsp;gas&nbsp;phase&nbsp;(volatile)<br>
+&nbsp;<br>
+comp_dependent_adsorption&nbsp;:&nbsp;bool<br>
+&nbsp;&nbsp;&nbsp;&nbsp;Whether&nbsp;the&nbsp;adsorption&nbsp;of&nbsp;this&nbsp;component&nbsp;is&nbsp;dependent&nbsp;on&nbsp;the&nbsp;composition<br>
+&nbsp;&nbsp;&nbsp;&nbsp;of&nbsp;the&nbsp;particle&nbsp;surface.&nbsp;<br>
+&nbsp;<br>
+EXAMPLE:&nbsp;<br>
+#&nbsp;ozone&nbsp;as&nbsp;component&nbsp;number&nbsp;1,&nbsp;no&nbsp;surface&nbsp;composition-dependent&nbsp;adsorption:<br>
+&nbsp;<br>
+&gt;&gt;&gt;&nbsp;from&nbsp;multilayerpy.build&nbsp;import&nbsp;<a href="#ModelComponent">ModelComponent</a><br>
+&nbsp;<br>
+&gt;&gt;&gt;&nbsp;ozone&nbsp;=&nbsp;<a href="#ModelComponent">ModelComponent</a>(1,&nbsp;reaction_scheme,&nbsp;name='ozone',&nbsp;gas=True)<br>&nbsp;</tt></td></tr>
+<tr><td>&nbsp;</td>
+<td width="100%">Methods defined here:<br>
+<dl><dt><a name="ModelComponent-__init__"><strong>__init__</strong></a>(self, component_number, reaction_scheme, name=None, gas=False, comp_dependent_adsorption=False)</dt><dd><tt>Initialize&nbsp;self.&nbsp;&nbsp;See&nbsp;help(type(self))&nbsp;for&nbsp;accurate&nbsp;signature.</tt></dd></dl>
+
+<hr>
+Data descriptors defined here:<br>
+<dl><dt><strong>__dict__</strong></dt>
+<dd><tt>dictionary&nbsp;for&nbsp;instance&nbsp;variables&nbsp;(if&nbsp;defined)</tt></dd>
+</dl>
+<dl><dt><strong>__weakref__</strong></dt>
+<dd><tt>list&nbsp;of&nbsp;weak&nbsp;references&nbsp;to&nbsp;the&nbsp;object&nbsp;(if&nbsp;defined)</tt></dd>
+</dl>
+</td></tr></table> <p>
+<table width="100%" cellspacing=0 cellpadding=2 border=0 summary="section">
+<tr bgcolor="#ffc8d8">
+<td colspan=3 valign=bottom>&nbsp;<br>
+<font color="#000000" face="helvetica, arial"><a name="ModelType">class <strong>ModelType</strong></a>(<a href="builtins.html#object">builtins.object</a>)</font></td></tr>
+    
+<tr bgcolor="#ffc8d8"><td rowspan=2><tt>&nbsp;&nbsp;&nbsp;</tt></td>
+<td colspan=2><tt><a href="#ModelType">ModelType</a>(model_type,&nbsp;geometry)<br>
+&nbsp;<br>
+A&nbsp;class&nbsp;which&nbsp;contains&nbsp;information&nbsp;about&nbsp;the&nbsp;model&nbsp;type<br>
+&nbsp;<br>
+Parameters<br>
+----------<br>
+model_type&nbsp;:&nbsp;str<br>
+&nbsp;&nbsp;&nbsp;&nbsp;Defines&nbsp;the&nbsp;model&nbsp;type.&nbsp;Currently&nbsp;allowed&nbsp;types&nbsp;are&nbsp;'km-sub'<br>
+&nbsp;&nbsp;&nbsp;&nbsp;and&nbsp;'km-gap'<br>
+geometry&nbsp;:&nbsp;str<br>
+&nbsp;&nbsp;&nbsp;&nbsp;Defines&nbsp;the&nbsp;geometry&nbsp;of&nbsp;the&nbsp;model.&nbsp;Either&nbsp;'spherical'&nbsp;or&nbsp;'film'<br>&nbsp;</tt></td></tr>
+<tr><td>&nbsp;</td>
+<td width="100%">Methods defined here:<br>
+<dl><dt><a name="ModelType-__init__"><strong>__init__</strong></a>(self, model_type, geometry)</dt><dd><tt>Initialize&nbsp;self.&nbsp;&nbsp;See&nbsp;help(type(self))&nbsp;for&nbsp;accurate&nbsp;signature.</tt></dd></dl>
+
+<hr>
+Data descriptors defined here:<br>
+<dl><dt><strong>__dict__</strong></dt>
+<dd><tt>dictionary&nbsp;for&nbsp;instance&nbsp;variables&nbsp;(if&nbsp;defined)</tt></dd>
+</dl>
+<dl><dt><strong>__weakref__</strong></dt>
+<dd><tt>list&nbsp;of&nbsp;weak&nbsp;references&nbsp;to&nbsp;the&nbsp;object&nbsp;(if&nbsp;defined)</tt></dd>
+</dl>
+</td></tr></table> <p>
+<table width="100%" cellspacing=0 cellpadding=2 border=0 summary="section">
+<tr bgcolor="#ffc8d8">
+<td colspan=3 valign=bottom>&nbsp;<br>
+<font color="#000000" face="helvetica, arial"><a name="Parameter">class <strong>Parameter</strong></a>(<a href="builtins.html#object">builtins.object</a>)</font></td></tr>
+    
+<tr bgcolor="#ffc8d8"><td rowspan=2><tt>&nbsp;&nbsp;&nbsp;</tt></td>
+<td colspan=2><tt><a href="#Parameter">Parameter</a>(value=inf,&nbsp;name='',&nbsp;bounds=None,&nbsp;vary=False)<br>
+&nbsp;<br>
+A&nbsp;class&nbsp;which&nbsp;defines&nbsp;a&nbsp;parameter&nbsp;<a href="builtins.html#object">object</a>&nbsp;along&nbsp;with&nbsp;its&nbsp;value,&nbsp;name,&nbsp;bounds&nbsp;(optional)&nbsp;and&nbsp;stats.<br>
+&nbsp;<br>
+Parameters<br>
+----------<br>
+value&nbsp;:&nbsp;float<br>
+&nbsp;&nbsp;&nbsp;&nbsp;The&nbsp;numerical&nbsp;value&nbsp;of&nbsp;the&nbsp;parameter<br>
+&nbsp;<br>
+name&nbsp;:&nbsp;str<br>
+&nbsp;&nbsp;&nbsp;&nbsp;The&nbsp;name&nbsp;of&nbsp;the&nbsp;parameter.<br>
+&nbsp;<br>
+bounds&nbsp;:&nbsp;tup&nbsp;or&nbsp;list<br>
+&nbsp;&nbsp;&nbsp;&nbsp;A&nbsp;tuple&nbsp;or&nbsp;list&nbsp;defining&nbsp;the&nbsp;lower&nbsp;and&nbsp;upper&nbsp;bounds&nbsp;for&nbsp;the&nbsp;parameter.<br>
+&nbsp;<br>
+vary&nbsp;:&nbsp;bool<br>
+&nbsp;&nbsp;&nbsp;&nbsp;Whether&nbsp;this&nbsp;parameter&nbsp;is&nbsp;to&nbsp;vary&nbsp;during&nbsp;model&nbsp;optimisation.<br>
+&nbsp;<br>
+stats&nbsp;:&nbsp;dict<br>
+&nbsp;&nbsp;&nbsp;&nbsp;A&nbsp;dictionary&nbsp;which&nbsp;holds&nbsp;statistics&nbsp;derived&nbsp;from&nbsp;MCMC&nbsp;sampling.<br>&nbsp;</tt></td></tr>
+<tr><td>&nbsp;</td>
+<td width="100%">Methods defined here:<br>
+<dl><dt><a name="Parameter-__init__"><strong>__init__</strong></a>(self, value=inf, name='', bounds=None, vary=False)</dt><dd><tt>Initialize&nbsp;self.&nbsp;&nbsp;See&nbsp;help(type(self))&nbsp;for&nbsp;accurate&nbsp;signature.</tt></dd></dl>
+
+<hr>
+Data descriptors defined here:<br>
+<dl><dt><strong>__dict__</strong></dt>
+<dd><tt>dictionary&nbsp;for&nbsp;instance&nbsp;variables&nbsp;(if&nbsp;defined)</tt></dd>
+</dl>
+<dl><dt><strong>__weakref__</strong></dt>
+<dd><tt>list&nbsp;of&nbsp;weak&nbsp;references&nbsp;to&nbsp;the&nbsp;object&nbsp;(if&nbsp;defined)</tt></dd>
+</dl>
+</td></tr></table> <p>
+<table width="100%" cellspacing=0 cellpadding=2 border=0 summary="section">
+<tr bgcolor="#ffc8d8">
+<td colspan=3 valign=bottom>&nbsp;<br>
+<font color="#000000" face="helvetica, arial"><a name="ReactionScheme">class <strong>ReactionScheme</strong></a>(<a href="builtins.html#object">builtins.object</a>)</font></td></tr>
+    
+<tr bgcolor="#ffc8d8"><td rowspan=2><tt>&nbsp;&nbsp;&nbsp;</tt></td>
+<td colspan=2><tt><a href="#ReactionScheme">ReactionScheme</a>(model_type_object,&nbsp;name='rxn_scheme',&nbsp;reactants=[],&nbsp;products=[],&nbsp;reactant_stoich=[],&nbsp;product_stoich=[])<br>
+&nbsp;<br>
+Defining&nbsp;the&nbsp;reaction&nbsp;scheme&nbsp;(what&nbsp;reacts&nbsp;with&nbsp;what)<br>
+&nbsp;<br>
+Parameters<br>
+----------<br>
+model_type_object&nbsp;:&nbsp;multilayerpy.Build.<a href="#ModelType">ModelType</a><br>
+&nbsp;&nbsp;&nbsp;&nbsp;Defines&nbsp;the&nbsp;model&nbsp;type&nbsp;necessary&nbsp;for&nbsp;naming&nbsp;conventions.<br>
+&nbsp;<br>
+name&nbsp;:&nbsp;str<br>
+&nbsp;&nbsp;&nbsp;&nbsp;Name&nbsp;of&nbsp;the&nbsp;reaction&nbsp;scheme<br>
+&nbsp;<br>
+reactants&nbsp;:&nbsp;list<br>
+&nbsp;&nbsp;&nbsp;&nbsp;List&nbsp;of&nbsp;tuples&nbsp;defining&nbsp;which&nbsp;components&nbsp;react&nbsp;with&nbsp;which.<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;EXAMPLE:&nbsp;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&gt;&gt;&gt;&nbsp;reactants&nbsp;=&nbsp;[(1,2),(1,3)]<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;This&nbsp;states&nbsp;that&nbsp;the&nbsp;first&nbsp;reaction&nbsp;is&nbsp;between&nbsp;component&nbsp;1&nbsp;and&nbsp;2&nbsp;and&nbsp;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;the&nbsp;second&nbsp;reaction&nbsp;is&nbsp;between&nbsp;component&nbsp;1&nbsp;and&nbsp;3.<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<br>
+products&nbsp;:&nbsp;list<br>
+&nbsp;&nbsp;&nbsp;&nbsp;List&nbsp;of&nbsp;tuples&nbsp;defining&nbsp;which&nbsp;components&nbsp;are&nbsp;reaction&nbsp;products.<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;EXAMPLE:&nbsp;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&gt;&gt;&gt;&nbsp;products&nbsp;=&nbsp;[(3,),(4,)]<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;This&nbsp;states&nbsp;that&nbsp;component&nbsp;3&nbsp;is&nbsp;a&nbsp;product&nbsp;of&nbsp;reaction&nbsp;1&nbsp;and&nbsp;component&nbsp;4<br>
+&nbsp;&nbsp;&nbsp;&nbsp;is&nbsp;a&nbsp;product&nbsp;of&nbsp;reaction&nbsp;2.<br>
+&nbsp;<br>
+reactant_stoich&nbsp;:&nbsp;list<br>
+&nbsp;&nbsp;&nbsp;&nbsp;List&nbsp;of&nbsp;tuples&nbsp;which&nbsp;define&nbsp;the&nbsp;stoichiometric&nbsp;coefficients&nbsp;(if&nbsp;any)&nbsp;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;applied&nbsp;to&nbsp;each&nbsp;reactant.&nbsp;(Optional).<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;EXAMPLE:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&gt;&gt;&gt;&nbsp;reactants&nbsp;=&nbsp;[(1,2)]<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&gt;&gt;&gt;&nbsp;reactant_stoich&nbsp;=&nbsp;[(0.5,1.0)]<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;This&nbsp;states&nbsp;that&nbsp;for&nbsp;reaction&nbsp;1,&nbsp;reactant&nbsp;1&nbsp;reacts&nbsp;with&nbsp;reactant&nbsp;2&nbsp;and<br>
+&nbsp;&nbsp;&nbsp;&nbsp;their&nbsp;stoichiometric&nbsp;coefficients&nbsp;are&nbsp;0.5&nbsp;and&nbsp;1.0,&nbsp;respectively.<br>
+&nbsp;<br>
+product_stoich&nbsp;:&nbsp;list<br>
+&nbsp;&nbsp;&nbsp;&nbsp;List&nbsp;of&nbsp;tuples&nbsp;which&nbsp;define&nbsp;the&nbsp;stoichiometric&nbsp;coefficients&nbsp;(if&nbsp;any)&nbsp;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;applied&nbsp;to&nbsp;each&nbsp;product.&nbsp;(Optional).<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;EXAMPLE:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&gt;&gt;&gt;&nbsp;products&nbsp;=&nbsp;[(3,4)]<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&gt;&gt;&gt;&nbsp;product_stoich&nbsp;=&nbsp;[(0.5,0.5)]<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;This&nbsp;states&nbsp;that&nbsp;for&nbsp;reaction&nbsp;1,&nbsp;the&nbsp;products&nbsp;3&nbsp;and&nbsp;4&nbsp;have&nbsp;stoichiometric<br>
+&nbsp;&nbsp;&nbsp;&nbsp;coefficients&nbsp;(branching&nbsp;ratios)&nbsp;of&nbsp;0.5.<br>&nbsp;</tt></td></tr>
+<tr><td>&nbsp;</td>
+<td width="100%">Methods defined here:<br>
+<dl><dt><a name="ReactionScheme-__init__"><strong>__init__</strong></a>(self, model_type_object, name='rxn_scheme', reactants=[], products=[], reactant_stoich=[], product_stoich=[])</dt><dd><tt>Initialize&nbsp;self.&nbsp;&nbsp;See&nbsp;help(type(self))&nbsp;for&nbsp;accurate&nbsp;signature.</tt></dd></dl>
+
+<dl><dt><a name="ReactionScheme-display"><strong>display</strong></a>(self)</dt><dd><tt>Function&nbsp;which&nbsp;prints&nbsp;the&nbsp;reaction&nbsp;scheme&nbsp;to&nbsp;the&nbsp;console.&nbsp;Not&nbsp;including&nbsp;stoichiometry.</tt></dd></dl>
+
+<hr>
+Data descriptors defined here:<br>
+<dl><dt><strong>__dict__</strong></dt>
+<dd><tt>dictionary&nbsp;for&nbsp;instance&nbsp;variables&nbsp;(if&nbsp;defined)</tt></dd>
+</dl>
+<dl><dt><strong>__weakref__</strong></dt>
+<dd><tt>list&nbsp;of&nbsp;weak&nbsp;references&nbsp;to&nbsp;the&nbsp;object&nbsp;(if&nbsp;defined)</tt></dd>
+</dl>
+</td></tr></table></td></tr></table>
+</body></html>

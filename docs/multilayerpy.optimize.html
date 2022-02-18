@@ -1,0 +1,276 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<html><head><title>Python: module multilayerpy.optimize</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+</head><body bgcolor="#f0f0f8">
+
+<table width="100%" cellspacing=0 cellpadding=2 border=0 summary="heading">
+<tr bgcolor="#7799ee">
+<td valign=bottom>&nbsp;<br>
+<font color="#ffffff" face="helvetica, arial">&nbsp;<br><big><big><strong><a href="multilayerpy.html"><font color="#ffffff">multilayerpy</font></a>.optimize</strong></big></big></font></td
+></tr></table>
+    <p><tt>@author:&nbsp;Adam&nbsp;Milsom<br>
+&nbsp;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;MultilayerPy&nbsp;-&nbsp;build,&nbsp;run&nbsp;and&nbsp;optimise&nbsp;kinetic&nbsp;multi-layer&nbsp;models&nbsp;for&nbsp;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;aerosol&nbsp;particles&nbsp;and&nbsp;films.<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;Copyright&nbsp;(C)&nbsp;2021&nbsp;&nbsp;Adam&nbsp;Milsom<br>
+&nbsp;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;This&nbsp;program&nbsp;is&nbsp;free&nbsp;software:&nbsp;you&nbsp;can&nbsp;redistribute&nbsp;it&nbsp;and/or&nbsp;modify<br>
+&nbsp;&nbsp;&nbsp;&nbsp;it&nbsp;under&nbsp;the&nbsp;terms&nbsp;of&nbsp;the&nbsp;GNU&nbsp;General&nbsp;Public&nbsp;License&nbsp;as&nbsp;published&nbsp;by<br>
+&nbsp;&nbsp;&nbsp;&nbsp;the&nbsp;Free&nbsp;Software&nbsp;Foundation,&nbsp;either&nbsp;version&nbsp;3&nbsp;of&nbsp;the&nbsp;License,&nbsp;or<br>
+&nbsp;&nbsp;&nbsp;&nbsp;(at&nbsp;your&nbsp;option)&nbsp;any&nbsp;later&nbsp;version.<br>
+&nbsp;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;This&nbsp;program&nbsp;is&nbsp;distributed&nbsp;in&nbsp;the&nbsp;hope&nbsp;that&nbsp;it&nbsp;will&nbsp;be&nbsp;useful,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;but&nbsp;WITHOUT&nbsp;ANY&nbsp;WARRANTY;&nbsp;without&nbsp;even&nbsp;the&nbsp;implied&nbsp;warranty&nbsp;of<br>
+&nbsp;&nbsp;&nbsp;&nbsp;MERCHANTABILITY&nbsp;or&nbsp;FITNESS&nbsp;FOR&nbsp;A&nbsp;PARTICULAR&nbsp;PURPOSE.&nbsp;&nbsp;See&nbsp;the<br>
+&nbsp;&nbsp;&nbsp;&nbsp;GNU&nbsp;General&nbsp;Public&nbsp;License&nbsp;for&nbsp;more&nbsp;details.<br>
+&nbsp;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;You&nbsp;should&nbsp;have&nbsp;received&nbsp;a&nbsp;copy&nbsp;of&nbsp;the&nbsp;GNU&nbsp;General&nbsp;Public&nbsp;License<br>
+&nbsp;&nbsp;&nbsp;&nbsp;along&nbsp;with&nbsp;this&nbsp;program.&nbsp;&nbsp;If&nbsp;not,&nbsp;see&nbsp;&lt;https://www.gnu.org/licenses/&gt;.</tt></p>
+<p>
+<table width="100%" cellspacing=0 cellpadding=2 border=0 summary="section">
+<tr bgcolor="#aa55cc">
+<td colspan=3 valign=bottom>&nbsp;<br>
+<font color="#ffffff" face="helvetica, arial"><big><strong>Modules</strong></big></font></td></tr>
+    
+<tr><td bgcolor="#aa55cc"><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</tt></td><td>&nbsp;</td>
+<td width="100%"><table width="100%" summary="list"><tr><td width="25%" valign=top><a href="copy.html">copy</a><br>
+<a href="emcee.html">emcee</a><br>
+</td><td width="25%" valign=top><a href="importlib.html">importlib</a><br>
+<a href="scipy.integrate.html">scipy.integrate</a><br>
+</td><td width="25%" valign=top><a href="multilayerpy.html">multilayerpy</a><br>
+<a href="numpy.html">numpy</a><br>
+</td><td width="25%" valign=top><a href="matplotlib.pyplot.html">matplotlib.pyplot</a><br>
+<a href="multilayerpy.simulate.html">multilayerpy.simulate</a><br>
+</td></tr></table></td></tr></table><p>
+<table width="100%" cellspacing=0 cellpadding=2 border=0 summary="section">
+<tr bgcolor="#ee77aa">
+<td colspan=3 valign=bottom>&nbsp;<br>
+<font color="#ffffff" face="helvetica, arial"><big><strong>Classes</strong></big></font></td></tr>
+    
+<tr><td bgcolor="#ee77aa"><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</tt></td><td>&nbsp;</td>
+<td width="100%"><dl>
+<dt><font face="helvetica, arial"><a href="builtins.html#object">builtins.object</a>
+</font></dt><dd>
+<dl>
+<dt><font face="helvetica, arial"><a href="multilayerpy.optimize.html#Optimizer">Optimizer</a>
+</font></dt></dl>
+</dd>
+</dl>
+ <p>
+<table width="100%" cellspacing=0 cellpadding=2 border=0 summary="section">
+<tr bgcolor="#ffc8d8">
+<td colspan=3 valign=bottom>&nbsp;<br>
+<font color="#000000" face="helvetica, arial"><a name="Optimizer">class <strong>Optimizer</strong></a>(<a href="builtins.html#object">builtins.object</a>)</font></td></tr>
+    
+<tr bgcolor="#ffc8d8"><td rowspan=2><tt>&nbsp;&nbsp;&nbsp;</tt></td>
+<td colspan=2><tt><a href="#Optimizer">Optimizer</a>(simulate_object,&nbsp;cost='MSE',&nbsp;cfunc=None,&nbsp;param_evolution_func=None,&nbsp;param_evolution_func_extra_vary_params=None,&nbsp;custom_model_y_func=None)<br>
+&nbsp;<br>
+An&nbsp;<a href="builtins.html#object">object</a>&nbsp;which&nbsp;will&nbsp;take&nbsp;in&nbsp;a&nbsp;Simulate,&nbsp;Model&nbsp;and&nbsp;Data&nbsp;<a href="builtins.html#object">object</a>&nbsp;in&nbsp;order&nbsp;to&nbsp;<br>
+fit&nbsp;the&nbsp;model&nbsp;to&nbsp;the&nbsp;data&nbsp;with&nbsp;various&nbsp;methods.<br>
+&nbsp;<br>
+Parameters<br>
+----------<br>
+simulate_object&nbsp;:&nbsp;multilayerpy.simulate.Simulate&nbsp;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;A&nbsp;Simulate&nbsp;<a href="builtins.html#object">object</a>&nbsp;created&nbsp;in&nbsp;the&nbsp;model&nbsp;building&nbsp;process.<br>
+&nbsp;<br>
+cost&nbsp;:&nbsp;str,&nbsp;optional<br>
+&nbsp;&nbsp;&nbsp;&nbsp;The&nbsp;cost&nbsp;function&nbsp;to&nbsp;use&nbsp;in&nbsp;the&nbsp;optimisation&nbsp;process.<br>
+&nbsp;&nbsp;&nbsp;&nbsp;Current&nbsp;option&nbsp;is&nbsp;mean-squared&nbsp;error&nbsp;'MSE'.<br>
+&nbsp;<br>
+cfunc&nbsp;:&nbsp;func,&nbsp;optional<br>
+&nbsp;&nbsp;&nbsp;&nbsp;A&nbsp;function&nbsp;which&nbsp;takes&nbsp;in&nbsp;data&nbsp;(in&nbsp;the&nbsp;Data&nbsp;<a href="builtins.html#object">object</a>&nbsp;format)&nbsp;and&nbsp;model_y<br>
+&nbsp;&nbsp;&nbsp;&nbsp;values&nbsp;supplied&nbsp;to&nbsp;the&nbsp;cost_func&nbsp;method.&nbsp;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;Returns&nbsp;the&nbsp;value&nbsp;of&nbsp;the&nbsp;cost&nbsp;function.&nbsp;Lower&nbsp;values&nbsp;=&nbsp;better&nbsp;fit.<br>
+&nbsp;<br>
+param_evolution_func&nbsp;:&nbsp;func,&nbsp;optional<br>
+&nbsp;&nbsp;&nbsp;&nbsp;A&nbsp;function&nbsp;which&nbsp;is&nbsp;called&nbsp;f(t,y,param_dict,param_evolution_func_extra_vary_params).&nbsp;<br>
+&nbsp;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;This&nbsp;is&nbsp;taken&nbsp;from&nbsp;the&nbsp;supplied&nbsp;Simulate&nbsp;<a href="builtins.html#object">object</a>.<br>
+&nbsp;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;It&nbsp;returns&nbsp;the&nbsp;param_dict&nbsp;and&nbsp;allows&nbsp;for&nbsp;model&nbsp;parameters&nbsp;to&nbsp;evolve<br>
+&nbsp;&nbsp;&nbsp;&nbsp;over&nbsp;time,&nbsp;values&nbsp;of&nbsp;y&nbsp;(array&nbsp;of&nbsp;ODE&nbsp;solutions&nbsp;evaluated&nbsp;at&nbsp;time&nbsp;t).<br>
+&nbsp;&nbsp;&nbsp;&nbsp;Parameters&nbsp;can&nbsp;be&nbsp;parameterised&nbsp;with&nbsp;extra&nbsp;parameters&nbsp;which&nbsp;themselves&nbsp;can<br>
+&nbsp;&nbsp;&nbsp;&nbsp;vary.&nbsp;See&nbsp;param_evolution_func_extra_vary_params&nbsp;below.&nbsp;<br>
+&nbsp;<br>
+param_evolution_func_extra_vary_params&nbsp;:&nbsp;list,&nbsp;optional<br>
+&nbsp;&nbsp;&nbsp;&nbsp;List&nbsp;of&nbsp;Parameter&nbsp;objects&nbsp;which&nbsp;represent&nbsp;additional&nbsp;parameters&nbsp;used<br>
+&nbsp;&nbsp;&nbsp;&nbsp;to&nbsp;evolve/parameterise&nbsp;model&nbsp;input&nbsp;parameters.&nbsp;These&nbsp;values&nbsp;can&nbsp;be&nbsp;optimised<br>
+&nbsp;&nbsp;&nbsp;&nbsp;during&nbsp;model&nbsp;optimisation.&nbsp;Supplied&nbsp;to&nbsp;the&nbsp;param_evolution_func&nbsp;function.<br>
+&nbsp;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;This&nbsp;is&nbsp;taken&nbsp;from&nbsp;the&nbsp;supplied&nbsp;Simulate&nbsp;<a href="builtins.html#object">object</a>.<br>&nbsp;</tt></td></tr>
+<tr><td>&nbsp;</td>
+<td width="100%">Methods defined here:<br>
+<dl><dt><a name="Optimizer-__init__"><strong>__init__</strong></a>(self, simulate_object, cost='MSE', cfunc=None, param_evolution_func=None, param_evolution_func_extra_vary_params=None, custom_model_y_func=None)</dt><dd><tt>Initialize&nbsp;self.&nbsp;&nbsp;See&nbsp;help(type(self))&nbsp;for&nbsp;accurate&nbsp;signature.</tt></dd></dl>
+
+<dl><dt><a name="Optimizer-cost_func"><strong>cost_func</strong></a>(self, model_y, weighted=False)</dt><dd><tt>Will&nbsp;calculate&nbsp;the&nbsp;cost&nbsp;function&nbsp;used&nbsp;in&nbsp;the&nbsp;optimisation&nbsp;process.&nbsp;<br>
+A&nbsp;custom&nbsp;cost&nbsp;function&nbsp;will&nbsp;be&nbsp;used&nbsp;if&nbsp;suppled&nbsp;via&nbsp;the&nbsp;cfunc&nbsp;attribute&nbsp;<br>
+of&nbsp;the&nbsp;<a href="#Optimizer">Optimizer</a>&nbsp;<a href="builtins.html#object">object</a>.&nbsp;<br>
+&nbsp;<br>
+Parameters<br>
+----------<br>
+model_y&nbsp;:&nbsp;np.ndarray<br>
+&nbsp;&nbsp;&nbsp;&nbsp;Model&nbsp;y&nbsp;values.&nbsp;&nbsp;<br>
+&nbsp;<br>
+Returns<br>
+-------<br>
+float<br>
+&nbsp;&nbsp;&nbsp;&nbsp;Cost&nbsp;function&nbsp;value.</tt></dd></dl>
+
+<dl><dt><a name="Optimizer-fit"><strong>fit</strong></a>(self, weighted=False, method='least_squares', component_no='1', n_workers=1, popsize=15)</dt><dd><tt>Use&nbsp;either&nbsp;a&nbsp;local&nbsp;or&nbsp;global&nbsp;optimisation&nbsp;algorithm&nbsp;to&nbsp;fit&nbsp;the&nbsp;model<br>
+to&nbsp;the&nbsp;data.&nbsp;<br>
+&nbsp;<br>
+Parameters<br>
+----------<br>
+weighted&nbsp;:&nbsp;bool,&nbsp;optional<br>
+&nbsp;&nbsp;&nbsp;&nbsp;Whether&nbsp;to&nbsp;weight&nbsp;the&nbsp;fit&nbsp;to&nbsp;datapoint&nbsp;uncertainties&nbsp;(requires&nbsp;the&nbsp;data&nbsp;to&nbsp;have&nbsp;uncertainties)<br>
+&nbsp;<br>
+method&nbsp;:&nbsp;str,&nbsp;optional<br>
+&nbsp;&nbsp;&nbsp;&nbsp;Algorithm&nbsp;to&nbsp;be&nbsp;used.&nbsp;'least_squares'&nbsp;(local)&nbsp;or&nbsp;'differential_evolution'&nbsp;(global).&nbsp;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;The&nbsp;default&nbsp;is&nbsp;'least_squares'&nbsp;Nelder-Mead&nbsp;(simplex).<br>
+&nbsp;<br>
+component_no&nbsp;:&nbsp;int,&nbsp;optional<br>
+&nbsp;&nbsp;&nbsp;&nbsp;The&nbsp;model&nbsp;component&nbsp;to&nbsp;fit&nbsp;to&nbsp;the&nbsp;data.&nbsp;The&nbsp;default&nbsp;is&nbsp;'1'.<br>
+&nbsp;<br>
+n_workers&nbsp;:&nbsp;int,&nbsp;optional<br>
+&nbsp;&nbsp;&nbsp;&nbsp;Number&nbsp;of&nbsp;cores&nbsp;to&nbsp;use&nbsp;(only&nbsp;for&nbsp;'differential_evolution'&nbsp;method).&nbsp;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;The&nbsp;default&nbsp;is&nbsp;1.<br>
+&nbsp;<br>
+popsize&nbsp;:&nbsp;int,&nbsp;optional<br>
+&nbsp;&nbsp;&nbsp;&nbsp;The&nbsp;multiplyer&nbsp;used&nbsp;by&nbsp;the&nbsp;differential_evolution&nbsp;implementation&nbsp;in&nbsp;SciPy.&nbsp;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;The&nbsp;total&nbsp;population&nbsp;size&nbsp;of&nbsp;parameter&nbsp;sets&nbsp;in&nbsp;the&nbsp;algorithm&nbsp;is&nbsp;len(varying_parameters)&nbsp;*&nbsp;popsize.&nbsp;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<br>
+returns<br>
+----------<br>
+optimize_result&nbsp;:&nbsp;scipy.optimize.OptimizeResult<br>
+&nbsp;&nbsp;&nbsp;&nbsp;The&nbsp;optimization&nbsp;result&nbsp;represented&nbsp;as&nbsp;a&nbsp;OptimizeResult&nbsp;<a href="builtins.html#object">object</a>.<br>
+&nbsp;&nbsp;&nbsp;&nbsp;Important&nbsp;attributes&nbsp;are:&nbsp;x&nbsp;the&nbsp;solution&nbsp;array,&nbsp;success&nbsp;a&nbsp;Boolean<br>
+&nbsp;&nbsp;&nbsp;&nbsp;flag&nbsp;indicating&nbsp;if&nbsp;the&nbsp;optimizer&nbsp;exited&nbsp;successfully&nbsp;and&nbsp;message<br>
+&nbsp;&nbsp;&nbsp;&nbsp;which&nbsp;describes&nbsp;the&nbsp;cause&nbsp;of&nbsp;the&nbsp;termination.&nbsp;<br>
+&nbsp;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;See&nbsp;the&nbsp;documentationfor&nbsp;more&nbsp;details:&nbsp;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.differential_evolution.html</tt></dd></dl>
+
+<dl><dt><a name="Optimizer-get_chain_outputs"><strong>get_chain_outputs</strong></a>(self, n_samples='all', parallel=False, component_number=1, n_burn=0, thin=1, override_stop_run=False)</dt><dd><tt>Runs&nbsp;the&nbsp;model&nbsp;with&nbsp;parameters&nbsp;randomly&nbsp;sampled&nbsp;from&nbsp;the&nbsp;MCMC&nbsp;chains&nbsp;created&nbsp;during&nbsp;the&nbsp;MCMC&nbsp;sampling&nbsp;procedure.&nbsp;<br>
+Outputs&nbsp;are&nbsp;returned&nbsp;as&nbsp;a&nbsp;numpy&nbsp;array.&nbsp;<br>
+&nbsp;<br>
+Parameters<br>
+----------<br>
+n_samples&nbsp;:&nbsp;int&nbsp;or&nbsp;'all',&nbsp;optional<br>
+&nbsp;&nbsp;&nbsp;&nbsp;The&nbsp;number&nbsp;of&nbsp;random&nbsp;samples&nbsp;to&nbsp;take&nbsp;from&nbsp;the&nbsp;MCMC&nbsp;chains.&nbsp;Default&nbsp;is&nbsp;'all'&nbsp;of&nbsp;the&nbsp;samples.<br>
+&nbsp;<br>
+parallel&nbsp;:&nbsp;bool,&nbsp;optional<br>
+&nbsp;&nbsp;&nbsp;&nbsp;Run&nbsp;each&nbsp;sample&nbsp;in&nbsp;parallel&nbsp;across&nbsp;all&nbsp;processors.&nbsp;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;WARNING:&nbsp;if&nbsp;a&nbsp;parameter&nbsp;evolution&nbsp;function&nbsp;is&nbsp;used&nbsp;by&nbsp;the&nbsp;Simulate&nbsp;<a href="builtins.html#object">object</a>,&nbsp;set&nbsp;this&nbsp;to&nbsp;False.&nbsp;Otherwise&nbsp;the&nbsp;sampling&nbsp;freezes.&nbsp;<br>
+&nbsp;<br>
+component_number&nbsp;:&nbsp;int,&nbsp;optional<br>
+&nbsp;&nbsp;&nbsp;&nbsp;The&nbsp;component&nbsp;number&nbsp;of&nbsp;the&nbsp;model&nbsp;component&nbsp;to&nbsp;be&nbsp;used&nbsp;as&nbsp;the&nbsp;model&nbsp;output.&nbsp;<br>
+&nbsp;<br>
+n_burn&nbsp;:&nbsp;int,&nbsp;optional<br>
+&nbsp;&nbsp;&nbsp;&nbsp;The&nbsp;number&nbsp;of&nbsp;initial&nbsp;steps&nbsp;to&nbsp;burn&nbsp;(discard)&nbsp;in&nbsp;the&nbsp;MCMC&nbsp;chain.<br>
+&nbsp;<br>
+thin&nbsp;:&nbsp;int,&nbsp;optional<br>
+&nbsp;&nbsp;&nbsp;&nbsp;Use&nbsp;every&nbsp;'thin'&nbsp;number&nbsp;of&nbsp;samples&nbsp;along&nbsp;the&nbsp;MCMC&nbsp;chains&nbsp;(called&nbsp;thinning).&nbsp;<br>
+&nbsp;<br>
+override_stop_run&nbsp;:&nbsp;bool,&nbsp;optional<br>
+&nbsp;&nbsp;&nbsp;&nbsp;Overrides&nbsp;stopping&nbsp;running&nbsp;this&nbsp;function&nbsp;if&nbsp;there&nbsp;is&nbsp;already&nbsp;a&nbsp;set&nbsp;of&nbsp;model&nbsp;runs&nbsp;sampled&nbsp;from&nbsp;the&nbsp;MCMC&nbsp;procedure.<br>
+&nbsp;<br>
+Returns<br>
+-------<br>
+xy_array_output&nbsp;:&nbsp;list<br>
+&nbsp;&nbsp;&nbsp;&nbsp;A&nbsp;list&nbsp;of&nbsp;model&nbsp;xy&nbsp;outputs&nbsp;(first&nbsp;column&nbsp;=&nbsp;time,&nbsp;second&nbsp;column&nbsp;=&nbsp;model&nbsp;output).</tt></dd></dl>
+
+<dl><dt><a name="Optimizer-lnlike"><strong>lnlike</strong></a>(self, vary_params)</dt><dd><tt>Calculates&nbsp;the&nbsp;log-likelihood&nbsp;of&nbsp;the&nbsp;model-data&nbsp;fit&nbsp;for&nbsp;MCMC&nbsp;sampling.<br>
+&nbsp;<br>
+Parameters<br>
+----------<br>
+vary_params&nbsp;:&nbsp;np.ndarray<br>
+&nbsp;&nbsp;&nbsp;&nbsp;An&nbsp;array&nbsp;of&nbsp;the&nbsp;varying&nbsp;model&nbsp;parameters.<br>
+&nbsp;<br>
+Returns<br>
+-------<br>
+loglike&nbsp;:&nbsp;float<br>
+&nbsp;&nbsp;&nbsp;&nbsp;The&nbsp;log-likelihood&nbsp;of&nbsp;the&nbsp;model&nbsp;fit.</tt></dd></dl>
+
+<dl><dt><a name="Optimizer-lnprior"><strong>lnprior</strong></a>(self, vary_params)</dt><dd><tt>Calculate&nbsp;the&nbsp;log-prior&nbsp;of&nbsp;the&nbsp;parameter&nbsp;set&nbsp;for&nbsp;MCMC&nbsp;sampling.<br>
+&nbsp;<br>
+Parameters<br>
+----------<br>
+vary_params&nbsp;:&nbsp;np.ndarray<br>
+&nbsp;&nbsp;&nbsp;&nbsp;An&nbsp;array&nbsp;of&nbsp;the&nbsp;varying&nbsp;model&nbsp;parameters.<br>
+&nbsp;<br>
+Returns<br>
+-------<br>
+float<br>
+&nbsp;&nbsp;&nbsp;&nbsp;The&nbsp;log-prior&nbsp;probability&nbsp;of&nbsp;the&nbsp;selected&nbsp;parameter&nbsp;set.</tt></dd></dl>
+
+<dl><dt><a name="Optimizer-lnprob"><strong>lnprob</strong></a>(self, vary_params)</dt><dd><tt>Calculate&nbsp;the&nbsp;log-probability&nbsp;for&nbsp;a&nbsp;parameter&nbsp;set,&nbsp;considering&nbsp;the&nbsp;priors.&nbsp;<br>
+&nbsp;<br>
+Parameters<br>
+----------<br>
+vary_params&nbsp;:&nbsp;np.ndarray<br>
+&nbsp;&nbsp;&nbsp;&nbsp;An&nbsp;array&nbsp;of&nbsp;the&nbsp;varying&nbsp;model&nbsp;parameters..<br>
+&nbsp;<br>
+Returns<br>
+-------<br>
+float<br>
+&nbsp;&nbsp;&nbsp;&nbsp;The&nbsp;log-probability&nbsp;for&nbsp;the&nbsp;model-data&nbsp;system,&nbsp;considering&nbsp;priors.</tt></dd></dl>
+
+<dl><dt><a name="Optimizer-plot_chain_outputs"><strong>plot_chain_outputs</strong></a>(self)</dt><dd><tt>Plots&nbsp;the&nbsp;experimental&nbsp;data&nbsp;with&nbsp;n_samples&nbsp;number&nbsp;of&nbsp;model&nbsp;runs&nbsp;from&nbsp;MCMC&nbsp;sampling.&nbsp;<br>
+Requires&nbsp;that&nbsp;a&nbsp;sample&nbsp;of&nbsp;model&nbsp;outputs&nbsp;from&nbsp;the&nbsp;MCMC&nbsp;chains&nbsp;has&nbsp;been&nbsp;taken&nbsp;using&nbsp;<a href="#Optimizer">Optimizer</a>.get_chain_outputs.<br>
+&nbsp;<br>
+Returns<br>
+-------<br>
+Plot&nbsp;of&nbsp;experimental&nbsp;data&nbsp;with&nbsp;normalised&nbsp;model&nbsp;output&nbsp;vs&nbsp;time&nbsp;for&nbsp;a&nbsp;number&nbsp;of&nbsp;MCMC&nbsp;samples.</tt></dd></dl>
+
+<dl><dt><a name="Optimizer-plot_chains"><strong>plot_chains</strong></a>(self, discard=0, thin=1)</dt><dd><tt>Plots&nbsp;the&nbsp;MCMC&nbsp;chains&nbsp;saved&nbsp;during&nbsp;the&nbsp;sampling&nbsp;run.&nbsp;Each&nbsp;plot&nbsp;is&nbsp;the&nbsp;<br>
+parameter&nbsp;value&nbsp;at&nbsp;each&nbsp;sampling&nbsp;iteration.<br>
+&nbsp;<br>
+Parameters<br>
+----------<br>
+discard&nbsp;:&nbsp;int,&nbsp;optional<br>
+&nbsp;&nbsp;&nbsp;&nbsp;The&nbsp;number&nbsp;of&nbsp;setps&nbsp;to&nbsp;burn-in&nbsp;(discard)&nbsp;from&nbsp;the&nbsp;chains&nbsp;before&nbsp;plotting.<br>
+&nbsp;<br>
+thin&nbsp;:&nbsp;int,&nbsp;optional<br>
+&nbsp;&nbsp;&nbsp;&nbsp;Only&nbsp;take&nbsp;every&nbsp;'thin'&nbsp;number&nbsp;of&nbsp;samples&nbsp;from&nbsp;the&nbsp;chain&nbsp;(called&nbsp;thinning).<br>
+&nbsp;<br>
+Returns<br>
+-------<br>
+A&nbsp;multi-panel&nbsp;plot&nbsp;of&nbsp;parameter&nbsp;values&nbsp;vs&nbsp;step&nbsp;number</tt></dd></dl>
+
+<dl><dt><a name="Optimizer-sample"><strong>sample</strong></a>(self, samples, n_walkers=100, n_burn=0, pool=None, **kwargs)</dt><dd><tt>Runs&nbsp;the&nbsp;MCMC&nbsp;sampling&nbsp;procedure&nbsp;using&nbsp;the&nbsp;emcee&nbsp;package.&nbsp;<br>
+&nbsp;<br>
+Parameters<br>
+----------<br>
+samples&nbsp;:&nbsp;int<br>
+&nbsp;&nbsp;&nbsp;&nbsp;The&nbsp;number&nbsp;of&nbsp;MCMC&nbsp;samples&nbsp;(steps)&nbsp;to&nbsp;take.<br>
+&nbsp;<br>
+n_walkers&nbsp;:&nbsp;int,&nbsp;optional<br>
+&nbsp;&nbsp;&nbsp;&nbsp;The&nbsp;number&nbsp;of&nbsp;walkers&nbsp;to&nbsp;initialise&nbsp;for&nbsp;MCMC&nbsp;sampling.<br>
+&nbsp;<br>
+n_burn&nbsp;:&nbsp;int,&nbsp;optional<br>
+&nbsp;&nbsp;&nbsp;&nbsp;Number&nbsp;of&nbsp;burn-in&nbsp;steps&nbsp;before&nbsp;the&nbsp;production&nbsp;MCMC&nbsp;run.&nbsp;<br>
+&nbsp;<br>
+pool&nbsp;:&nbsp;optional<br>
+&nbsp;&nbsp;&nbsp;&nbsp;An&nbsp;<a href="builtins.html#object">object</a>&nbsp;with&nbsp;a&nbsp;map&nbsp;method&nbsp;that&nbsp;follows&nbsp;the&nbsp;same&nbsp;calling&nbsp;sequence<br>
+&nbsp;&nbsp;&nbsp;&nbsp;as&nbsp;the&nbsp;built-in&nbsp;map&nbsp;function.&nbsp;This&nbsp;is&nbsp;generally&nbsp;used&nbsp;to&nbsp;compute&nbsp;the<br>
+&nbsp;&nbsp;&nbsp;&nbsp;log-probabilities&nbsp;for&nbsp;the&nbsp;ensemble&nbsp;in&nbsp;parallel.<br>
+&nbsp;<br>
+Further&nbsp;details&nbsp;about&nbsp;the&nbsp;emcee&nbsp;EnsembleSampler&nbsp;<a href="builtins.html#object">object</a>&nbsp;are&nbsp;available&nbsp;<br>
+in&nbsp;its&nbsp;documentation:&nbsp;https://emcee.readthedocs.io/en/stable/user/sampler/<br>
+&nbsp;<br>
+Returns<br>
+-------<br>
+sampler&nbsp;:&nbsp;emcee.EnsembleSampler&nbsp;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;EnsembleSampler&nbsp;<a href="builtins.html#object">object</a>.</tt></dd></dl>
+
+<hr>
+Data descriptors defined here:<br>
+<dl><dt><strong>__dict__</strong></dt>
+<dd><tt>dictionary&nbsp;for&nbsp;instance&nbsp;variables&nbsp;(if&nbsp;defined)</tt></dd>
+</dl>
+<dl><dt><strong>__weakref__</strong></dt>
+<dd><tt>list&nbsp;of&nbsp;weak&nbsp;references&nbsp;to&nbsp;the&nbsp;object&nbsp;(if&nbsp;defined)</tt></dd>
+</dl>
+</td></tr></table></td></tr></table>
+</body></html>
