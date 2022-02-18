@@ -435,7 +435,7 @@ class Simulate():
         start_int = time.time()
         
         # is a parameter evolution function being used? if so, use it
-        if type(self.param_evo_func) == type(None):
+        if self.param_evo_func is None:
             model_output = integrate.solve_ivp(lambda t, y:self._dydt(t,y,params,V,A,n_layers,layer_thick),
                                                      (min(time_span),max(time_span)),
                                                      Y0,t_eval=tspan,method=ode_integrate_method,
@@ -444,8 +444,11 @@ class Simulate():
             
             # for a single run we just want the float values of the additional param_evo parameters as a list
             param_evo_value_list = []
-            for par_obj in self.param_evo_additional_params:
-                param_evo_value_list.append(par_obj.value)
+
+            # if no additional params, do not add to param_evo_value_list
+            if self.param_evo_additional_params is not None:
+                for par_obj in self.param_evo_additional_params:
+                    param_evo_value_list.append(par_obj.value)
 
             model_output = integrate.solve_ivp(lambda t, y:self._dydt(t,y,params,V,A,n_layers,layer_thick,
                                                                              param_evolution_func=self.param_evo_func,

@@ -105,7 +105,7 @@ class ReactionScheme:
         
         EXAMPLE:
         >>> products = [(3,4)]
-        >>> reactant_stoich = [(0.5,0.5)]
+        >>> product_stoich = [(0.5,0.5)]
         
         This states that for reaction 1, the products 3 and 4 have stoichiometric
         coefficients (branching ratios) of 0.5.  
@@ -1605,7 +1605,8 @@ class Parameter():
         
         self.name = name
         self.bounds = bounds   
-        assert len(bounds) == 2, f"There are {len(bounds)} numbers supplied to bounds, there needs to be 2."
+        if bounds is not None:
+            assert len(bounds) == 2, f"There are {len(bounds)} numbers supplied to bounds, there needs to be 2."
         self.value = value
         self.vary = vary
         self.stats = None
