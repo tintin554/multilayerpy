@@ -48,7 +48,7 @@ class ModelType:
         assert type(model_type) == str
         
         # geometry needs to be in list of accepted geometries
-        assert geometry in ['spherical','film']
+        assert geometry.lower() in ['spherical','film']
         
         self.model_type = model_type
         

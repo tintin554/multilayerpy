@@ -752,10 +752,13 @@ class Simulate():
             comp_name = self.model.model_components[f'{i+1}'].name
             comp_bulk_conc = self.bulk_concs[f'{i+1}'].T
             
+            layers = np.arange(comp_bulk_conc.shape[0]+1)
+            time = self.model_output.t
+
             plt.figure()
             plt.title(comp_name,fontsize='large')
-            plt.pcolormesh(comp_bulk_conc,cmap=cmap)
-            plt.xlabel('Time points',fontsize='large')
+            plt.pcolormesh(time,layers,comp_bulk_conc,cmap=cmap)
+            plt.xlabel('Time / s',fontsize='large')
             plt.ylabel('Layer number',fontsize='large')
             
             # invert y-axis so that layer 0 is at the top of the plot
