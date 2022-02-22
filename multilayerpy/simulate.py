@@ -1003,10 +1003,10 @@ def initial_concentrations(model_type,bulk_conc_dict,surf_conc_dict,n_layers,
     model_type : multilayerpy.build.ModelType
         The model type under consideration.
 
-    bulk_conc: dict
+    bulk_conc_dict: dict
         dict of initial bulk concentration of each component (key = component number)
 
-    surf_conc: dict
+    surf_conc_dict: dict
         dict of initial surf concentration of each component (key = component number)
 
     n_layers: int
@@ -1039,6 +1039,10 @@ def initial_concentrations(model_type,bulk_conc_dict,surf_conc_dict,n_layers,
         defining the initial concentration of each model component in the surface and bulk layers. Supplied to the ODE solver.
     '''
     
+    # make sure the lengths of the bulk and surf dicts are the same
+
+    assert len(bulk_conc_dict) == len(surf_conc_dict), f"The number of components in bulk_conc_dict ({len(bulk_conc_dict)}) is not equal to the number of components in surf_conc_dict ({len(surf_conc_dict)})."
+
     n_comps = len(bulk_conc_dict)
     
     # initialise the Y0 array
@@ -1063,8 +1067,8 @@ def initial_concentrations(model_type,bulk_conc_dict,surf_conc_dict,n_layers,
                 
         elif model_type.model_type.lower() == 'km-gap':
 
-            assert type(V) != None, "supply Vol. array for calculation of initial number of molecules in each layer (KM-GAP)"
-            assert type(A) != None, "supply Area array for calculation of initial number of molecules in surface layers (KM-GAP)"
+            assert type(V) is not None, "supply Vol. array for calculation of initial number of molecules in each layer (KM-GAP)"
+            assert type(A) is not, "supply Area array for calculation of initial number of molecules in surface layers (KM-GAP)"
             assert type(parameter_dict) != None, "supply Model Comonents dictionary for calculation of initial number of molecules in each layer (KM-GAP)"
             
             if float(bulk_conc_val) > 1.0:
