@@ -1033,7 +1033,8 @@ class Optimizer():
         component_number = self._sampling_component_number
         
         sim.run(sim.run_params['n_layers'],sim.run_params['rp'],sim.run_params['time_span'],
-            sim.run_params['n_time'],sim.run_params['V'],sim.run_params['A'],sim.run_params['layer_thick'],
+            sim.run_params['n_time'],sim.run_params['V'],sim.run_params['A'],
+            sim.run_params['layer_thick'],
             sim.run_params['Y0'],ode_integrator=sim.run_params['ode_integrator'],
             ode_integrate_method=sim.run_params['ode_integrate_method'],
             rtol=sim.run_params['rtol'], atol=sim.run_params['atol'])
@@ -1052,6 +1053,9 @@ class Optimizer():
         '''
 
         sim = self.simulate
+        
+        chains = sampler.get_chain(discard=n_burn,thin=thin)
+        _,nwalkers,_ = chains.shape
 
         # get the flattened chains
         flat_chains = sampler.get_chain(flat=True,discard=n_burn,thin=thin)
@@ -1068,15 +1072,21 @@ class Optimizer():
 
             # calc stats
             param_chain = flat_chains[:,i]
-
+            
             mean = np.mean(param_chain)
-            percent_2point5 = np.percentile(param_chain,2.5)
-            percent_97point5 = np.percentile(param_chain,97.5)
+            percentile_2point5 = np.percentile(param_chain,2.5)
+            percentile_97point5 = np.percentile(param_chain,97.5)
+            percentile_25 = np.percentile(param_chain,25.0)
+            percentile_75 = np.percentile(param_chain,75.0)
             std = np.std(param_chain)
             stats_dict = {'mean_mcmc': mean,
-                          '2.5th percentile': percent_2point5,
-                          '97.5th percentile': percent_97point5,
+                          '2.5th percentile': percentile_2point5,
+                          '25th percentile': percentile_25,
+                          '75th percentile': percentile_75,
+                          '97.5th percentile': percentile_97point5,
                           'std_mcmc': std,
+                          'n_samples':nsamples,
+                          'n_walkers': nwalkers,
                           'n_burn': n_burn,
                           'n_thin': thin,
                           'original_value': sim.parameters[key].value}

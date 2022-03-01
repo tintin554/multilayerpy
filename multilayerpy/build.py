@@ -1609,7 +1609,7 @@ class Parameter():
             assert len(bounds) == 2, f"There are {len(bounds)} numbers supplied to bounds, there needs to be 2."
         self.value = value
         self.vary = vary
-        self.stats = None
+        self.stats = {}
 
         if bounds is not None:
             assert vary == True, "Bounds have been supplied but the parameter has not been set to vary."

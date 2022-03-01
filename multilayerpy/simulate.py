@@ -905,7 +905,8 @@ class Simulate():
         n_thin = None
                 
         output_array = np.array(['Parameter_name','value','lower_bound','upper_bound',
-                                 'MCMC mean value', '2.5% (percentile)', '97.5% (percentile)',
+                                 'MCMC mean value', '2.5% (percentile)', '25% (percentile)',
+                                 '75% percentile', '97.5% (percentile)',
                                  'standard deviation'])
         
         # for each param in the param dict, append info to the output array
@@ -914,8 +915,10 @@ class Simulate():
             lower_bound = 'n/a'
             upper_bound = 'n/a'
             mean_mcmc = 'n/a'
-            percent_2point5 = 'n/a'
-            percent_97point5 = 'n/a'
+            percentile_2point5 = 'n/a'
+            percentile_25 = 'n/a'
+            percentile_75 = 'n/a'
+            percentile_97point5 = 'n/a'
             std = 'n/a'
             
             if param.bounds is not None:
@@ -927,19 +930,23 @@ class Simulate():
 
             if param.stats is not None:
                 mean_mcmc = param.stats['mean_mcmc']
-                percent_2point5 = param.stats['2.5th percentile']
-                percent_97point5 = param.stats['97.5th percentile']
+                percentile_2point5 = param.stats['2.5th percentile']
+                percentile_25 = param.stats['25th percentile']
+                percentile_75 = param.stats['75th percentile']
+                percentile_97point5 = param.stats['97.5th percentile']
                 std = param.stats['std_mcmc']
 
                 if param.stats['n_burn'] is not None:
                     n_burn = param.stats['n_burn']
                     n_thin = param.stats['n_thin']
+                    n_samples = param.stats['n_samples']
+                    n_walkers = param.stats['n_walkers']
 
     
             val = float(param.value)
             
             arr = np.array([name,val,lower_bound,upper_bound,mean_mcmc,
-                            percent_2point5,percent_97point5,std])
+                            percentile_2point5,percentile_25,percentile_75,percentile_97point5,std])
             
             output_array = np.vstack((output_array,arr))
             
@@ -950,7 +957,7 @@ class Simulate():
         # create a header with creation date and details of any MCMC sampling procedure
         header = f'# [MultilayerPy] Optimised parameters for [{self.name}] (model) and {self.data.name} (data)'
         if MCMC == True:
-            header += f'. MCMC sampling: n_burn= {n_burn}; n_thin= {n_thin}'
+            header += f'. MCMC sampling: n_samples= {n_samples}; n_walkers= {n_walkers}; n_burn= {n_burn}; n_thin= {n_thin}'
         
         # save the file
         np.savetxt(filename,output_array,delimiter=',',fmt='%s',header=header)
@@ -1068,7 +1075,7 @@ def initial_concentrations(model_type,bulk_conc_dict,surf_conc_dict,n_layers,
         elif model_type.model_type.lower() == 'km-gap':
 
             assert type(V) is not None, "supply Vol. array for calculation of initial number of molecules in each layer (KM-GAP)"
-            assert type(A) is not, "supply Area array for calculation of initial number of molecules in surface layers (KM-GAP)"
+            assert type(A) is not None, "supply Area array for calculation of initial number of molecules in surface layers (KM-GAP)"
             assert type(parameter_dict) != None, "supply Model Comonents dictionary for calculation of initial number of molecules in each layer (KM-GAP)"
             
             if float(bulk_conc_val) > 1.0:
