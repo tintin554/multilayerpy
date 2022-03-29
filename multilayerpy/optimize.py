@@ -105,7 +105,7 @@ class Optimizer():
         self._emcee_sampler = None
         self._sampling_component_number = None
         
-    def cost_func(self,model_y,weighted=False):
+    def cost_func(self,model_y,weighted=True):
         '''
         Will calculate the cost function used in the optimisation process. 
         A custom cost function will be used if suppled via the cfunc attribute 
@@ -147,7 +147,28 @@ class Optimizer():
                                         
                 # weighted cost function
                 elif weighted == True:
-                    val = ((1.0/expt_y_err**2) * np.square(expt_y-model_y)).mean()
+                    
+                    # catch any attempts to divide by 0
+                    # find any uncertainties of 0 and make those weights = 1.0
+                    w = []
+                    
+                    for err in expt_y_err:
+                        if err == 0.0:
+                            w_val = 1.0
+                            w.append(w_val)
+                        else:
+                            w_val = (1.0/err**2)
+                            w.append(w_val)
+                    
+                    w = np.array(w)
+                  
+                    squared_error = np.square(expt_y-model_y)
+                    n = len(squared_error)
+                    weighted_mse = (1.0 / n) * np.sum(w * squared_error)
+                    
+                    val = weighted_mse
+                    
+                    #val = ((1.0/expt_y_err**2) * np.square(expt_y-model_y)).mean()
                                         
                 # ignore weightings even though possible (non-weighted)
                 else:
@@ -402,7 +423,7 @@ class Optimizer():
         return lp + self.lnlike(vary_params)
         
     
-    def fit(self,weighted=False,method='least_squares',component_no='1',n_workers=1,
+    def fit(self,weighted=True,method='least_squares',component_no='1',n_workers=1,
             popsize=15):
         '''
         Use either a local or global optimisation algorithm to fit the model
@@ -444,7 +465,12 @@ class Optimizer():
         self._fitting_component_no = component_no
         sim = self.simulate
         param_evolution_func_extra_vary_params = self.param_evolution_func_extra_vary_params
-
+        
+        # make sure that there are errors to use if fit is weighted
+        if np.any(np.isnan(sim.data.y_err)):
+            raise RuntimeError("Nan found in Data.y_err. Data uncertainties are required for weighted fit. Set weighted=False or provide uncertainties.")
+            
+        
         # check that there are data to fit to
         if sim.data is None:
             raise RuntimeError("There are no data associated with the Simulate object.")

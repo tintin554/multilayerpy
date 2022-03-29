@@ -898,7 +898,7 @@ class Simulate():
         # check that any MCMC sampling has occured to determine if values from this should be quoted
         MCMC = False
         for param in params.values():
-            if param.stats is not None:
+            if len(param.stats) != 0:
                 MCMC = True
 
         n_burn = None
@@ -928,7 +928,7 @@ class Simulate():
                 lower_bound = '{:.2e}'.format(lb)
                 upper_bound = '{:.2e}'.format(ub)
 
-            if param.stats is not None:
+            if len(param.stats) != 0:
                 mean_mcmc = param.stats['mean_mcmc']
                 percentile_2point5 = param.stats['2.5th percentile']
                 percentile_25 = param.stats['25th percentile']
