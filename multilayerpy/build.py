@@ -512,6 +512,9 @@ class DiffusionRegime():
         # list of strings describing Db for each model component
         self.Db_strings = None
         
+        # sum of the fraction of products
+        self.sum_product_fractions = None
+        self.sum_product_fractions_surf = None
         # list of strings describing Ds for each model component
         self.Ds_strings = None
         
@@ -602,11 +605,11 @@ class DiffusionRegime():
                     
                     
                         
-                # km-sub Darken linear combination
-                elif self.regime.lower() == 'darken':
+                # km-sub linear combination
+                elif self.regime.lower() == 'linear':
                     # initially dependent on D_comp in pure comp
                     # multiply by fraction of component
-                    Db_string = f'Db_{i+1}_arr = (Db_{i+1}_arr * fb_{i+1}_arr) '
+                    Db_string = f'Db_{i+1}_arr = (Db_{i+1}_arr * fb_{i+1}) '
                     
                     Ds_string = f'Ds_{i+1} = (Db_{i+1}**fs_{i+1}) '
                     
@@ -614,7 +617,7 @@ class DiffusionRegime():
                     
                     # loop over depending components 
                     for comp in compos_depend_tup:
-                        Db_string += f'+ (Db_{i+1}_{comp}_arr * fb_{comp}_arr) '
+                        Db_string += f'+ (Db_{i+1}_{comp}_arr * fb_{comp}) '
                         
                         Ds_string += f'+ (Db_{i+1}_{comp} * fs_{comp}) '
                         
@@ -631,21 +634,27 @@ class DiffusionRegime():
                 elif self.regime == 'obstruction':
                     # only dependent on total fraction of products
                     sum_product_fractions = 'f_prod = '
+                    sum_product_fractions_surf = 'fs_prod = '
                     
                     # add in fraction of each product to sum of product frac.
                     # string
                     for a, comp in enumerate(compos_depend_tup):
                         if a == 0:
                             sum_product_fractions += f'fb_{comp} '
+                            sum_product_fractions_surf += f'fs_{comp} '
                         else:
                             sum_product_fractions += f'+ fb_{comp} '
+                            sum_product_fractions_surf += f'+ fs_{comp} '
                             
                     # obstruction theory equation (Stroeve 1975)    
-                    Db_string = f'Db_{i+1}_arr = (Db_{i+1}_arr * (2 - 2 * f_prod) / (2 + f_prod)'
+                    Db_string = f'Db_{i+1}_arr = Db_{i+1}_arr * ((2 - 2 * f_prod) / (2 + f_prod))'
                     
-                    Ds_string = f'Ds_{i+1} = (Db_{i+1} * (2 - 2 * fs_prod) / (2 + fs_prod)'
+                    Ds_string = f'Ds_{i+1} = Db_{i+1} * ((2 - 2 * fs_prod) / (2 + fs_prod))'
                     
                     req_diff_params.add(f'Db_{i+1}')
+                    
+                    self.sum_product_fractions = sum_product_fractions
+                    self.sum_product_fractions_surf = sum_product_fractions_surf
                     
                     Db_definition_string_list.append(Db_string)
                     Ds_definition_string_list.append(Ds_string)
@@ -1090,6 +1099,8 @@ class ModelBuilder():
         
         # calculate bulk fraction array for each component in each layer
         master_string_list.append('\n    # Db and fb arrays')
+        
+        
         for comp in mod_comps.values():
             comp_no = comp.component_number
             fb_string = f'\n    fb_{comp_no} = y[{comp_no-1}*Lorg+{comp_no}:{comp_no}*Lorg+{comp_no-1}+1] / ('
@@ -1117,7 +1128,12 @@ class ModelBuilder():
             fb_string += ')'
             
             master_string_list.append(fb_string)
-            
+        
+        if self.diffusion_regime.regime == 'obstruction':
+            master_string_list.append('\n\n    # total product fraction (obstruction theory)')
+            master_string_list.append('\n    ' + self.diffusion_regime.sum_product_fractions)
+            master_string_list.append('\n    ' + self.diffusion_regime.sum_product_fractions_surf)
+        
         master_string_list.append('\n')
         # Db arrays for each component
         accounted_Db_strings = []
