@@ -34,9 +34,15 @@ from multilayerpy.build import Parameter
 import importlib
 from scipy.optimize import differential_evolution, minimize
 from multilayerpy.simulate import Data
-import emcee
+
 import matplotlib.pyplot as plt
 import copy
+
+import warnings
+try:
+    import emcee
+except ModuleNotFoundError:
+    warnings.warn('emcee is not installed on your system. MCMC sampling is not possible without this package.')
 
 class Optimizer():
     '''
