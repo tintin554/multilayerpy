@@ -486,9 +486,15 @@ class DiffusionRegime():
         # model component
         self.diff_dict = diff_dict
         
+        # if the diffusion dict is None, make a dict of Nones for each comp
+        
+        if diff_dict is None:
+            
+            self.diff_dict = {f'{x}' : None for x in np.arange(1,len(model_components_dict)+1)}
+        
         # make sure diff_dict includes all model components
-        error_msg = f"diffusion dict length = {len(diff_dict)}, model components dict length = {len(model_components_dict)}. They need to be the same."
-        assert len(diff_dict) == len(model_components_dict), error_msg
+        error_msg = f"diffusion dict length = {len(self.diff_dict)}, model components dict length = {len(model_components_dict)}. They need to be the same."
+        assert len(self.diff_dict) == len(model_components_dict), error_msg
         
         # list of strings descibing kbb for each component
         # movement of each component between model layers

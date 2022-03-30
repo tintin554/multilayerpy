@@ -112,11 +112,11 @@ class TestModelConstruction(unittest.TestCase):
                           '2':O3,
                           '3':prod}
         
-        diff_dict = {'1':None,
-                     '2':None,
-                     '3':None}
+        # diff_dict = {'1':None,
+        #              '2':None,
+        #              '3':None}
         
-        dr = DiffusionRegime(mod_type,mod_comps_dict,diff_dict=diff_dict)
+        dr = DiffusionRegime(mod_type,mod_comps_dict)
         dr()
         
         model = ModelBuilder(rs,mod_comps_dict,dr)
@@ -265,7 +265,7 @@ class TestModelConstruction(unittest.TestCase):
         # make sure the optimisation reaches an acceptable tolerance
         # Final cost function value should be tiny
         violation = False
-        if res.fun > 1e-15:
+        if res.fun > 1e-13:
             violation = True
         self.assertEqual(violation,False)
 
