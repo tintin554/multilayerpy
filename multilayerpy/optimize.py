@@ -7,7 +7,7 @@
     MultilayerPy - build, run and optimise kinetic multi-layer models for 
     aerosol particles and films.
     
-    Copyright (C) 2021  Adam Milsom
+    Copyright (C) 2022 Adam Milsom
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
