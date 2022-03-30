@@ -14,7 +14,7 @@ In this repository you will find the core MultilayerPy package along with refere
 
 The framework is summarised in the figure below:
 
-![alt text](summary_fig.png "Title")
+![image](summary_fig.png)
 
 MultilayerPy takes advantage of the object-oriented programming (OOP) paradigm and represents the common building blocks (reaction scheme, diffusion regime, model components) as separate classes.
 
@@ -27,8 +27,13 @@ Additionally, Markov Chain Monte Carlo (MCMC) sampling of the model-data system 
 A more detailed description of how MultilayerPy works is outlined in the reference manual and in the upcoming manuscript (close to submission). 
 
 ## Installation
+There are currently two ways of installing MultilayerPy:
+
+#### 1) Download the .zip file
 The easiest way to install MultilayerPy on your system is to download this repository as a .zip file from the releases tab in this repository. 
-However, the easiest way to keep an up-to-date version on your system is to clone the repository using git and the command line:
+
+#### 2) Clone the Git Hub repository
+To keep an up-to-date version on your system, clone the repository using git and the command line:
 
 `$ git clone https://github.com/tintin554/kinetic-multilayer-model-builder.git`
 
@@ -36,14 +41,18 @@ Then a simple `$ git pull` would update your local copy with the latest "nightly
 Be warned that these may not be the final stable versions of the next release of MultilayerPy. Check this by typing `print(multilayerpy.__version__)` into your python terminal.
 Download the package from the releases tab for the latest stable version. 
 
-If you want to make changes to the source code and/or submit pull requests, fork this repository and include your own features. This is highly encouraged! (see 'Contributing')
+If you want to make changes to the source code and/or submit pull requests, fork this repository and include your own features. This is highly encouraged! (see [Contributing](#contributing))
 
-Unit tests should be run after installing or updating the package. Run the testing.py script from the terminal: `$ python -m unittest testing.py -v`. There should be no failures. 
+Unit tests should be run after installing or updating the package. Run the testing.py script from the terminal: 
+
+`$ python -m unittest testing.py -v`
+
+There should be no test failures. Alternatively, the `testing.py` code could be run from an interactive Spyder session. 
 
 ### Dependencies
 This package requires the standard Anaconda python distribution (developed on Python version `3.8.8`) and the following packages (and versions) are used for development:
 - SciPy (1.7.3)
-- NumPy (1.20.1)
+- NumPy (1.21.5)
 - Matplotlib (3.3.4)
 - emcee (3.1.1)
 
