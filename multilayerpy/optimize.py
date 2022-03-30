@@ -42,8 +42,8 @@ import warnings
 try:
     import emcee
 except ModuleNotFoundError:
-    warnings.warn('emcee is not installed on your system. MCMC sampling is not possible without this package.')
-
+    warnings.warn('MultilayerPy: emcee is not installed on your system. MCMC sampling is not possible without emcee.')
+    
 class Optimizer():
     '''
     An object which will take in a Simulate, Model and Data object in order to 

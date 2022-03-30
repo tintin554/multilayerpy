@@ -847,6 +847,17 @@ class ModelBuilder():
         rxn_name = self.reaction_scheme.name
         mod_comps = self.model_components
         
+        regime = self.diffusion_regime.regime
+        if self.diffusion_regime.diff_dict is None:
+            regime = 'None'
+        else:
+            diff_evo = False
+            for k in self.diffusion_regime.diff_dict.keys():
+                if self.diffusion_regime.diff_dict[k] is not None:
+                    diff_evo = True
+            if diff_evo == False:
+                regime = 'None'
+                
         # make T a required param
         self.req_params.add('T')
         
@@ -860,7 +871,7 @@ class ModelBuilder():
                            f'# Reaction name: {rxn_name}\n',
                            f'# Geometry: {self.geometry}\n',
                            f'# Number of model components: {len(self.model_components)}\n',
-                           f'# Diffusion regime: {self.diffusion_regime.regime}\n',
+                           f'# Diffusion regime: {regime}\n',
                            '#================================================\n',
                            '\n',
                            'import numpy as np']
@@ -1044,7 +1055,7 @@ class ModelBuilder():
                     kd_str = f'\n    kd_{comp_no} = 1 / Td_{comp_no}'
                     Zss_eq_str = f'\n    Zss_eq_{comp_no} = (ka_{comp_no}/kd_{comp_no}) * Zgs_{comp_no}'
                     
-                    Zg_eq_str = f'\n    Zg_eq_{comp_no} = (p_{comp_no} * Na) / (R * T)'
+                    Zg_eq_str = f'\n    Zg_eq_{comp_no} = (p_{comp_no} * Na) / (R_cm3_units * T)'
                     
                     master_string_list.append(ka_str)
                     master_string_list.append(kd_str)
@@ -1095,7 +1106,7 @@ class ModelBuilder():
         
          # diffusion evolution
         
-        master_string_list.append('\n    #--------------Bulk Diffusion evolution---------------\n')
+        master_string_list.append('\n\n    #--------------Bulk Diffusion evolution---------------\n')
         
         # calculate bulk fraction array for each component in each layer
         master_string_list.append('\n    # Db and fb arrays')
@@ -1188,16 +1199,16 @@ class ModelBuilder():
             master_string_list.append(four_space+s+'\n')
             
         
-        
-        master_string_list.append('\n\n    # sorption-static surface layer\n')
-        master_string_list.append('\n')
-        # kss_s (km-gap)
-        for s in diff_regime.kss_s_strings:
-            master_string_list.append(four_space+s+'\n')
-        
-        # ks_ss (km-gap)
-        for s in diff_regime.ks_ss_strings:
-            master_string_list.append(four_space+s+'\n')
+        if mod_type.lower() == 'km-gap':
+            master_string_list.append('\n    # sorption-static surface layer\n')
+            master_string_list.append('\n')
+            # kss_s (km-gap)
+            for s in diff_regime.kss_s_strings:
+                master_string_list.append(four_space+s+'\n')
+            
+            # ks_ss (km-gap)
+            for s in diff_regime.ks_ss_strings:
+                master_string_list.append(four_space+s+'\n')
         
         master_string_list.append('\n\n    # mass fluxes\n')
         master_string_list.append('\n')
@@ -1485,17 +1496,27 @@ class ModelBuilder():
             # account for volatilisation from surface
             
             # append the completed strings for this component to the master string list  
-            master_string_list.append(f'\n    #----component number {comp.component_number}, {comp.name}----')
+            master_string_list.append(f'\n    #========component number {comp.component_number}, {comp.name}========\n')
+            if mod_type.lower() == 'km-sub':
+                master_string_list.append('\n    # sorption layer (Xs) /static surface layer (Yss)\n')
+            elif mod_type.lower() == 'km-gap':
+                master_string_list.append('\n    # sorption layer (Zs)\n')
             master_string_list.append('\n'+four_space+comp.surf_string+'\n')
             if mod_type.lower() == 'km-gap':
+                master_string_list.append('\n    # static surface layer (Zss)\n')
                 master_string_list.append(four_space+comp.static_surf_string+'\n')
+                
+            master_string_list.append('\n    # first bulk layer (Xb1/Yb1/Zb1)\n')
             master_string_list.append(four_space+comp.firstbulk_string+'\n')
             master_string_list.append(four_space+'for i in np.arange(1,Lorg-1):'+'\n')
             #if mod_type.lower() == 'km-gap':
+            
             for s in comp.mass_transport_rate_inloop_strings:
                 master_string_list.append(four_space+four_space+s+'\n')
             
+            master_string_list.append('\n        # bulk i layer (Xbi/Ybi/Zbi)\n')
             master_string_list.append(four_space+four_space+comp.bulk_string+'\n')
+            master_string_list.append('\n    # core layer n (Xbn/Ybn/Zbn)\n')
             master_string_list.append(four_space+comp.core_string+'\n')                     
         
         # unpack all params from params dictionary
@@ -1576,6 +1597,7 @@ class ModelBuilder():
                 
         # define the gas constant        
         unpack_params_string_list.append('\n\n    R = 82.0578') 
+        unpack_params_string_list.append('\n\n    R_cm3_units = 8.314 * 1e6')
         unpack_params_string_list.append('\n    Na = 6.022e23') 
         
         # wrapping up the dydt function
