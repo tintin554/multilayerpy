@@ -14,7 +14,7 @@ In this repository you will find the core MultilayerPy package along with refere
 
 The framework is summarised in the figure below:
 
-figure
+![alt text](summary_fig.png "Title")
 
 MultilayerPy takes advantage of the object-oriented programming (OOP) paradigm and represents the common building blocks (reaction scheme, diffusion regime, model components) as separate classes.
 
