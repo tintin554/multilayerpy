@@ -49,6 +49,10 @@ Unit tests should be run after installing or updating the package. Run the testi
 
 There should be no test failures. Alternatively, the `testing.py` code could be run from an interactive Spyder session. 
 
+### Anaconda Python distribution (Spyder and Jupyter Notebook)
+
+The tutorials for this package are written in Jupyter notebooks and the code was developed using Spyder. Both of these programs are available in the [Anaconda Python distribution](https://www.anaconda.com/products/distribution). It is recommended that the user uses this Python distribution to run MultilayerPy.
+
 ### Dependencies
 This package requires the standard Anaconda python distribution (developed on Python version `3.8.8`) and the following packages (and versions) are used for development:
 - SciPy (1.7.3)
