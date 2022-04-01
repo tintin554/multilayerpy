@@ -473,10 +473,11 @@ class Optimizer():
         param_evolution_func_extra_vary_params = self.param_evolution_func_extra_vary_params
         
         # make sure that there are errors to use if fit is weighted
-        if np.any(np.isnan(sim.data.y_err)):
-            raise RuntimeError("Nan found in Data.y_err. Data uncertainties are required for weighted fit. Set weighted=False or provide uncertainties.")
+        if weighted:
+            if np.any(np.isnan(sim.data.y_err)):
+                raise RuntimeError("Nan found in Data.y_err. Data uncertainties are required for weighted fit. Set weighted=False or provide uncertainties.")
+                
             
-        
         # check that there are data to fit to
         if sim.data is None:
             raise RuntimeError("There are no data associated with the Simulate object.")
