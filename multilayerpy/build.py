@@ -1138,7 +1138,15 @@ class ModelBuilder():
             # close the bracket on the demoninator    
             fb_string += ')'
             
-            master_string_list.append(fb_string)
+            # add conditional checking if Db_{cn} is 0, fb will be 0 (monolayer)
+            if_string = f'\n    if float(Db_{comp_no}) == 0.0:'
+            ifclause_string = f'\n        fb_{comp_no} = np.zeros(Lorg)'
+            else_string = f'\n    else:'
+            
+            master_string_list.append(if_string)
+            master_string_list.append(ifclause_string)
+            master_string_list.append(else_string)
+            master_string_list.append('\n     ' + fb_string[2:])
         
         if self.diffusion_regime.regime == 'obstruction':
             master_string_list.append('\n\n    # total product fraction (obstruction theory)')
