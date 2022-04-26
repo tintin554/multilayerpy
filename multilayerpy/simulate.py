@@ -757,7 +757,7 @@ class Simulate():
 
             plt.figure()
             plt.title(comp_name,fontsize='large')
-            plt.pcolormesh(time,layers,comp_bulk_conc,cmap=cmap)
+            plt.pcolormesh(time,layers,comp_bulk_conc,cmap=cmap,shading='nearest')
             plt.xlabel('Time / s',fontsize='large')
             plt.ylabel('Layer number',fontsize='large')
             
