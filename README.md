@@ -36,6 +36,8 @@ There are currently three ways of installing MultilayerPy:
 #### 1) A `pip` install
 Running `pip install multilayerpy` in your terminal window will download and build MultilayerPy in your python environment, enabling you to import the package without being in the source code directory. This is the most straightforward method. It does not include any of the tutorial notebooks and data, which need to be downloaded separately from the GitHub repository or Zeondo archive. 
 
+Ensure that you have the correct packages installed as listed below in the dependencies. The standard Anaconda python distribution should work fine with this method of installation. 
+
 #### 2) Download the .zip file
 You can download this repository as a .zip file from the releases tab in this repository or by clicking on the upper-left "code" button and selecting "download ZIP" for the latest version (the latest version may still be under development). 
 
