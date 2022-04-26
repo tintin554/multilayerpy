@@ -13094,7 +13094,6 @@ div#notebook {
 <span class="kn">import</span> <span class="nn">multilayerpy.build</span> <span class="k">as</span> <span class="nn">build</span> 
 <span class="kn">import</span> <span class="nn">multilayerpy.simulate</span> <span class="k">as</span> <span class="nn">simulate</span>
 <span class="kn">import</span> <span class="nn">multilayerpy.optimize</span> <span class="k">as</span> <span class="nn">optimize</span>
-<span class="kn">import</span> <span class="nn">scipy</span>
 
 <span class="c1"># useful to know what version of multilayerpy we are using</span>
 <span class="nb">print</span><span class="p">(</span><span class="n">multilayerpy</span><span class="o">.</span><span class="n">__version__</span><span class="p">)</span>
@@ -13114,32 +13113,7 @@ div#notebook {
 
 
 <div class="output_subarea output_stream output_stdout output_text">
-<pre>    =====================================================================
-    
-    MultilayerPy - build, run and optimise kinetic multi-layer models for 
-    aerosol particles and films.
-    
-    Copyright (C) 2022 Adam Milsom
-
-    This program is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with this program.  If not, see &lt;https://www.gnu.org/licenses/&gt;.
-    
-    Version: 0.0.2dev
-    
-    =====================================================================
-    
-
-0.0.2dev
+<pre>1.0.1
 </pre>
 </div>
 </div>
@@ -13330,7 +13304,7 @@ R1: 1 + 2 -----&gt; 3
 
 
 <div class="output_subarea output_stream output_stdout output_text">
-<pre>{&#39;Td_2&#39;, &#39;Db_1&#39;, &#39;Xgs_2&#39;, &#39;T&#39;, &#39;Db_3&#39;, &#39;Db_2&#39;, &#39;delta_1&#39;, &#39;k_1_2&#39;, &#39;delta_2&#39;, &#39;k_1_2_surf&#39;, &#39;w_2&#39;, &#39;delta_3&#39;, &#39;H_2&#39;, &#39;alpha_s_0_2&#39;}
+<pre>{&#39;Db_2&#39;, &#39;Db_1&#39;, &#39;Db_3&#39;, &#39;delta_1&#39;, &#39;delta_3&#39;, &#39;w_2&#39;, &#39;H_2&#39;, &#39;T&#39;, &#39;Xgs_2&#39;, &#39;k_1_2&#39;, &#39;delta_2&#39;, &#39;alpha_s_0_2&#39;, &#39;k_1_2_surf&#39;, &#39;Td_2&#39;}
 </pre>
 </div>
 </div>
@@ -13787,29 +13761,7 @@ shape after transposition (10, 999)
 <pre>
 Optimising using least_squares Nelder-Mead algorithm...
 
-</pre>
-</div>
-</div>
-
-<div class="output_area">
-
-    <div class="prompt"></div>
-
-
-<div class="output_subarea output_stream output_stderr output_text">
-<pre>C:\Conda5\lib\site-packages\scipy\optimize\_minimize.py:522: RuntimeWarning: Method Nelder-Mead cannot handle constraints nor bounds.
-  RuntimeWarning)
-</pre>
-</div>
-</div>
-
-<div class="output_area">
-
-    <div class="prompt"></div>
-
-
-<div class="output_subarea output_stream output_stdout output_text">
-<pre>Optimization terminated successfully.
+Optimization terminated successfully.
          Current function value: 6.264441
          Iterations: 18
          Function evaluations: 36
@@ -13820,7 +13772,7 @@ optimised params:
 Success=: True ,termination message: Optimization terminated successfully.
 number of iters: 18
 final cost function value = 
-6.2644412650323575
+6.264441265667725
 </pre>
 </div>
 </div>
@@ -13926,18 +13878,18 @@ final cost function value =
  [4.00801603e-02 4.09831646e+07 6.94427113e+02 5.08945007e+04]
  [8.01603206e-02 4.09316156e+07 6.95256603e+02 1.02443453e+05]
  ...
- [3.99198397e+01 1.10674606e+02 1.35265983e+04 4.10339484e+07]
- [3.99599198e+01 1.03943263e+02 1.35267048e+04 4.10339551e+07]
- [4.00000000e+01 9.76226598e+01 1.35268045e+04 4.10339614e+07]]
+ [3.99198397e+01 1.10674610e+02 1.35265983e+04 4.10339484e+07]
+ [3.99599198e+01 1.03943267e+02 1.35267048e+04 4.10339551e+07]
+ [4.00000000e+01 9.76226631e+01 1.35268045e+04 4.10339614e+07]]
 
 OLEIC ACID XY DATA
 [[0.00000000e+00 4.10340591e+07]
  [4.00801603e-02 4.09831646e+07]
  [8.01603206e-02 4.09316156e+07]
  ...
- [3.99198397e+01 1.10674606e+02]
- [3.99599198e+01 1.03943263e+02]
- [4.00000000e+01 9.76226598e+01]]
+ [3.99198397e+01 1.10674610e+02]
+ [3.99599198e+01 1.03943267e+02]
+ [4.00000000e+01 9.76226631e+01]]
 </pre>
 </div>
 </div>
