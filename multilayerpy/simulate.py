@@ -559,7 +559,8 @@ class Simulate():
 
         Returns
         -------
-        matplotlib.pyplot.figure object
+        fig : matplotlib.pyplot.Figure 
+            Figure object.
         '''
 
         # filename if saving is desired
@@ -608,11 +609,11 @@ class Simulate():
         plt.tight_layout()
         if save:
             plt.savefig(filename + '_surface_concentrations.png')
-        plt.show()
+        # plt.show()
         
         
-        # plot bulk concentrations    
-        plt.figure()
+        # plot total concentrations    
+        fig = plt.figure()
         if norm:
             plt.title('Normalised amount of each component',fontsize='large')
             
@@ -689,7 +690,7 @@ class Simulate():
             plt.tight_layout()
             if save:
                 plt.savefig(filename + '_total_output.png')
-            plt.show()
+            # plt.show()
         except:
             try: 
                 if norm:
@@ -711,7 +712,7 @@ class Simulate():
                 plt.tight_layout()
                 if save:
                     plt.savefig(filename + '_total_output.png')
-                plt.show()
+                # plt.show()
                 
             except:
             
@@ -720,9 +721,9 @@ class Simulate():
                 plt.tight_layout()
                 if save:
                     plt.savefig(filename + '_total_output.png')
-                plt.show()
+                # plt.show()
                 
-        #return fig
+        return fig
             
         
     def plot_bulk_concs(self,cmap='viridis',save=False):
@@ -737,7 +738,11 @@ class Simulate():
 
         save : bool, optional
             Whether to save the plots. 
-
+        
+        returns
+        ---------
+        list_of_figs : list
+            List of figure objects
         '''
         
         # filename if saving is desired
@@ -747,7 +752,7 @@ class Simulate():
         n_comps = len(self.bulk_concs)
         
         # for each component, plot a heatmap plot
-        
+        list_of_figs = []
         for i in range(n_comps):
             comp_name = self.model.model_components[f'{i+1}'].name
             comp_bulk_conc = self.bulk_concs[f'{i+1}'].T
@@ -755,7 +760,7 @@ class Simulate():
             layers = np.arange(comp_bulk_conc.shape[0]+1)
             time = self.model_output.t
 
-            plt.figure()
+            fig = plt.figure(num=i)
             plt.title(comp_name,fontsize='large')
             plt.pcolormesh(time,layers,comp_bulk_conc,cmap=cmap,shading='nearest')
             plt.xlabel('Time / s',fontsize='large')
@@ -768,7 +773,11 @@ class Simulate():
             plt.tight_layout()
             if save:
                 plt.savefig(filename + f'_bulk_concentration_component_{i}.png')
-            plt.show()
+            list_of_figs.append(fig)
+            # plt.show()
+        
+        return list_of_figs
+            
 
     def xy_data_total_number(self,components='all'):
         '''
