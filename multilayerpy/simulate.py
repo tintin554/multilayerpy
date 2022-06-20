@@ -609,7 +609,7 @@ class Simulate():
         plt.tight_layout()
         if save:
             plt.savefig(filename + '_surface_concentrations.png')
-        # plt.show()
+        plt.show()
         
         
         # plot total concentrations    
@@ -685,12 +685,12 @@ class Simulate():
                     #     plt.errorbar(data[:,0],data[:,1],yerr=data[:,2],mfc='none',
                     #              mec='k',linestyle='none',label='data',marker='o',color='k')
         
-            plt.xlabel('Time')
+            plt.xlabel('Time / s')
             plt.legend()
             plt.tight_layout()
             if save:
                 plt.savefig(filename + '_total_output.png')
-            # plt.show()
+            plt.show()
         except:
             try: 
                 if norm:
@@ -707,32 +707,35 @@ class Simulate():
                     plt.errorbar(data.x,data._unnorm_y,yerr=data._unnorm_y_err,mfc='none',
                              mec='k',linestyle='none',label='data',marker='o',color='k')
                 
-                plt.xlabel('Time')
+                plt.xlabel('Time / s')
                 plt.legend()
                 plt.tight_layout()
                 if save:
                     plt.savefig(filename + '_total_output.png')
-                # plt.show()
+                plt.show()
                 
             except:
             
-                plt.xlabel('Time')
+                plt.xlabel('Time / s')
                 plt.legend()
                 plt.tight_layout()
                 if save:
                     plt.savefig(filename + '_total_output.png')
-                # plt.show()
+                plt.show()
                 
         return fig
             
         
-    def plot_bulk_concs(self,cmap='viridis',save=False):
+    def plot_bulk_concs(self, comp_number='all', cmap='viridis',save=False):
         '''
         Plots heatmaps of the bulk concentration of each model component.
         y-axis is layer number, x-axis is timepoint
         
         Parameters
         ----------
+        comp_number : int, optional
+            The component of the model output to plot. The default is 'all'.
+            
         cmap : str, optional
             The colourmap supplied to matplotlib.pyplot.pcolormesh().
 
@@ -741,8 +744,8 @@ class Simulate():
         
         returns
         ---------
-        list_of_figs : list
-            List of figure objects
+        list_of_figs or fig : list or figure object
+            List of figure objects or a single figure object
         '''
         
         # filename if saving is desired
@@ -751,16 +754,15 @@ class Simulate():
 
         n_comps = len(self.bulk_concs)
         
-        # for each component, plot a heatmap plot
-        list_of_figs = []
-        for i in range(n_comps):
-            comp_name = self.model.model_components[f'{i+1}'].name
-            comp_bulk_conc = self.bulk_concs[f'{i+1}'].T
+        # if one component selected, only plot that one
+        if comp_number != 'all':
+            comp_name = self.model.model_components[f'{comp_number}'].name
+            comp_bulk_conc = self.bulk_concs[f'{comp_number}'].T
             
             layers = np.arange(comp_bulk_conc.shape[0]+1)
             time = self.model_output.t
 
-            fig = plt.figure(num=i)
+            fig = plt.figure(num=comp_number)
             plt.title(comp_name,fontsize='large')
             plt.pcolormesh(time,layers,comp_bulk_conc,cmap=cmap,shading='nearest')
             plt.xlabel('Time / s',fontsize='large')
@@ -772,9 +774,35 @@ class Simulate():
             cb.set_label(label='conc. / cm$^{-3}$',fontsize='large',size='large')
             plt.tight_layout()
             if save:
-                plt.savefig(filename + f'_bulk_concentration_component_{i}.png')
-            list_of_figs.append(fig)
-            # plt.show()
+                plt.savefig(filename + f'_bulk_concentration_component_{comp_number}.png')
+            
+            return fig
+        
+        else:
+            # for each component, plot a heatmap plot
+            list_of_figs = []
+            for i in range(n_comps):
+                comp_name = self.model.model_components[f'{i+1}'].name
+                comp_bulk_conc = self.bulk_concs[f'{i+1}'].T
+                
+                layers = np.arange(comp_bulk_conc.shape[0]+1)
+                time = self.model_output.t
+    
+                fig = plt.figure(num=i)
+                plt.title(comp_name,fontsize='large')
+                plt.pcolormesh(time,layers,comp_bulk_conc,cmap=cmap,shading='nearest')
+                plt.xlabel('Time / s',fontsize='large')
+                plt.ylabel('Layer number',fontsize='large')
+                
+                # invert y-axis so that layer 0 is at the top of the plot
+                plt.gca().invert_yaxis()
+                cb=plt.colorbar()
+                cb.set_label(label='conc. / cm$^{-3}$',fontsize='large',size='large')
+                plt.tight_layout()
+                if save:
+                    plt.savefig(filename + f'_bulk_concentration_component_{i+1}.png')
+                list_of_figs.append(fig)
+                # plt.show()
         
         return list_of_figs
             
