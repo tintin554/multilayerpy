@@ -1,6 +1,6 @@
 # MutilayerPy
 
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.6411189.svg)](https://doi.org/10.5281/zenodo.6411189)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.6411188.svg)](https://doi.org/10.5281/zenodo.6411188)
 
  A package used to build a kinetic multi-layer model for aerosol particles and films. Released under the GNU GPL v3.0 license.
 
@@ -92,4 +92,4 @@ Adam Milsom (University of Birmingham): a.milsom.2@bham.ac.uk
 Suggestions are very welcome!
 
 ## Acknowledgement and citation
-We would greatly appreciate citation of the description paper (in submission) and source code (see beginning of this README) if MultilayerPy was used in your study. 
+We would greatly appreciate citation of the description paper ([discussion paper here](https://doi.org/10.5194/egusphere-2022-143)) and source code (see beginning of this README) if MultilayerPy was used in your study. 
