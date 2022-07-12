@@ -19,7 +19,7 @@ class TestModelConstruction(unittest.TestCase):
     def test_type(self):
         with self.assertRaises(AssertionError):
             mod = ModelType(1,'triangle')
-            git 
+ 
     # reaction scheme
     def test_reactionscheme(self):
         
