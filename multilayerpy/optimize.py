@@ -112,6 +112,7 @@ class Optimizer():
         self._vary_param_bounds = None
         self._emcee_sampler = None
         self._sampling_component_number = None
+        self._original_sim_params = copy.deepcopy(self.simulate.parameters)
 
     def cost_func(self, model_y, weighted=True):
         #TODO update the docstring with no t=0 data protocol (fit + mcmc)
@@ -602,11 +603,12 @@ class Optimizer():
             # assuming expt time axis is in s
             # if first time point not 0, eval at 0 s too (for normalisation to
             # t=0 later on)
-            if float(self.data.x[0]) != 0.0:
-                t_eval = np.append(np.array([0]), self.data.x)
+            # TODO finish this implementation after testing 
+            # if float(self.data.x[0]) != 0.0:
+            #     t_eval = np.append(np.array([0]), self.data.x)
 
-            else:
-                t_eval = self.data.x
+            # else:
+            t_eval = self.data.x
 
             model_output = integrate.solve_ivp(lambda t, y:sim._dydt(t,y,sim.parameters,V,A,n_layers,layer_thick,
                                                                              param_evolution_func=self.param_evolution_func,
@@ -756,13 +758,19 @@ class Optimizer():
         # collect results into a result dict for printing
         res_dict = {}
 
-        # TODO update sim.parameters with optimised parameters
         if len(varying_param_keys) != 0:
             for i in range(len(varying_param_keys)):
                 key = varying_param_keys[i]
                 res_dict[key] = result.x[i]
-
+                
+                # updating the Parameter objects that were varied
+                # to optimised values
+                sim.parameters[key].value = result.x[i]
+        
+        # adding additional varied Parameter objects to the results dict
         if len(add_param_names) != 0:
+            
+            # create new optimised Parameter objects
             optimised_extra_vary_params_list = []
             for i in range(len(add_param_names)):
                 key = add_param_names[i]
@@ -772,7 +780,9 @@ class Optimizer():
                                                 name=key, vary=True,
                                                 bounds=add_param_bounds[i])
                 optimised_extra_vary_params_list.append(optimised_param_obj)
-
+            
+            # update parameter evolution additional Parameter objects list
+            # for Simulate object
             sim.param_evo_additional_params = optimised_extra_vary_params_list
 
         # print out results
@@ -785,8 +795,7 @@ class Optimizer():
         print(result.fun)
 
         # run the simulation once more to update the Simulate object with
-        # optimised parameters
-
+        # optimised model output
 
         sim.run(sim.run_params['n_layers'],sim.run_params['rp'],
                 sim.run_params['time_span'],sim.run_params['n_time'],
@@ -829,7 +838,12 @@ class Optimizer():
 
         sim = self.simulate
         param_evolution_func_extra_vary_params = sim.param_evo_additional_params
-
+        
+        # make a copy of original Simulate.parameters and 
+        # Simulate.param_evo_additional_params to return to after MCMC
+        self._original_sim_parameters = copy.deepcopy(sim.parameters)
+        self._original_sim_param_evo_additional_params = copy.deepcopy(sim.param_evo_additional_params)
+        
         # identify varying params, append to varying_params list and record order
         varying_params = []
         varying_param_keys = []
@@ -890,7 +904,12 @@ class Optimizer():
 
         # update the parameter objects with the statistics from MCMC sampling (including burn-in and thinning)
         self._update_param_stats(self._emcee_sampler, n_burn=n_burn, thin=1)
-
+        
+        # return Simulate.parameters and Simulate.param_evo_additional_params
+        # to original values before MCMC sampling
+        sim.parameters = self._original_sim_parameters
+        sim.param_evo_additional_params = self._original_sim_param_evo_additional_params
+        
         return sampler
 
     def plot_chains(self, discard=0, thin=1):
@@ -985,6 +1004,7 @@ class Optimizer():
 
         plt.xlabel('Time / s')
         plt.ylabel('Normalised amount of component')
+        plt.ylim(0,1.1)
         plt.legend()
         plt.tight_layout()
         plt.show()
