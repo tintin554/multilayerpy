@@ -19,7 +19,7 @@ class TestModelConstruction(unittest.TestCase):
     def test_type(self):
         with self.assertRaises(AssertionError):
             mod = ModelType(1,'triangle')
-            
+            git 
     # reaction scheme
     def test_reactionscheme(self):
         
@@ -261,6 +261,10 @@ class TestModelConstruction(unittest.TestCase):
         opt = Optimizer(sim)
 
         res = opt.fit()
+        
+        # check that the Parameter object for alpha_s_0_2 is equal to 
+        # optimised value
+        self.assertEqual(sim.parameters['alpha_s_0_2'].value, res.x[0])
 
         # make sure the optimisation reaches an acceptable tolerance
         # Final cost function value should be tiny
