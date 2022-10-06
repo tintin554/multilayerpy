@@ -656,7 +656,7 @@ class Optimizer():
 
     def fit(self, weighted=True, method='least_squares',
             component_no='1', n_workers=1,
-            popsize=15):
+            popsize=15, callback=None):
         '''
         Use either a local or global optimisation algorithm to fit the model
         to the data.
@@ -680,6 +680,16 @@ class Optimizer():
         popsize : int, optional
             The multiplyer used by the differential_evolution implementation in SciPy.
             The total population size of parameter sets in the algorithm is len(varying_parameters) * popsize.
+            
+        callback : func, optional
+            The callback function supplied to the differential_evolution implementation in SciPy.
+            The function is called in this way: 
+                
+                callback(xk, convergence=val)
+                
+                Where xk is the best solution found so far and val is the
+                fractional value of the population convergence. When val > 1,
+                the function halts. If callback returns True the minimisation is halted.
 
         returns
         ----------
@@ -749,7 +759,8 @@ class Optimizer():
             result = differential_evolution(self._minimize_me, param_bounds,
                                             (varying_param_keys,),
                                             disp=True,
-                                            workers=n_workers, popsize=popsize)
+                                            workers=n_workers, popsize=popsize,
+                                            callback=callback)
         elif method == 'least_squares':
             # print(varying_params)
             print('\nOptimising using least_squares Nelder-Mead algorithm...\n')
