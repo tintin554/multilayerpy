@@ -529,8 +529,10 @@ class Optimizer():
                                                                          additional_params=additional_params),
                                                  (min(time_span),max(time_span)),
                                                  Y0,t_eval=t_eval,method=ode_integrate_method)
-        # TODO should this update model output?
-        # self.simulate.model_output = model_output
+        
+        # should this update model output? yes because the Vt,At,thick_t is calculated from the 
+        # new model output each time
+        self.simulate.model_output = model_output
     
         if self.simulate.model.model_type.lower() == 'km-sub':
             # collect surface concentrations
