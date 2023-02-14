@@ -448,10 +448,217 @@ class Optimizer():
             return -np.inf
 
         return lp + self.lnlike(vary_params)
+    
+    def _minimize_me(self,varying_param_vals, varying_param_keys):
+        '''
+        The function to minimise during the fitting process.
+    
+        Parameters
+        ----------
+        varying_param_vals : array-type
+            An array of varying model parameters to be optimised.
+    
+        varying_param_keys : list
+            List of parameter dictionary keys corresponding to the parameter
+            represented in varying_param_vals.
+    
+        sim : multilayerpy.simulate.Simulate
+            The simulate object to be optimised.
+    
+        component_no : int, optional
+            The component number of the model component to fit to.
+            i.e. If the experimental data corresponds to component number 4,
+            fit to component_no = 4.
+    
+        extra_vary_params_start_ind : int, optional
+            The starting index for the 'extra' varying parameters
+            (not included in the parameter dictionary) used in the parameter
+            evolution function.
+    
+        fit_particle_radius : bool, optional
+            Whether or not to fit to particle radius data.
+    
+        Returns
+        -------
+        cost_val : float
+            Value of the cost function.
+    
+        '''
+    
+        # unpack required params to run the model
+        n_layers = self.simulate.run_params['n_layers']
+        V = self.simulate.run_params['V']
+        A = self.simulate.run_params['A']
+        n_time = self.simulate.run_params['n_time']
+        rp = self.simulate.run_params['rp']
+        time_span = self.simulate.run_params['time_span']
+        ode_integrate_method = self.simulate.run_params['ode_integrate_method']
+        layer_thick = self.simulate.run_params['layer_thick']
+        Y0 = self.simulate.run_params['Y0']
+    
+        if self._extra_vary_params_start_ind is not None:
+            additional_params = varying_param_vals[self._extra_vary_params_start_ind:]
+        else:
+            additional_params = None
+    
+        # update the simulate object parameters
+        for ind, param in enumerate(varying_param_keys):
+            self.simulate.parameters[param].value = varying_param_vals[ind]
+    
+        # import the model from the .py file created in the model building
+        # process
+        # model_import = importlib.import_module(f'{self.model.filename[:-3]}')
+    
+        # define time interval
+        tspan = np.linspace(min(time_span),max(time_span),n_time)
+    
+        # t_eval for comparing mod + expt at the same timepoints
+        # assuming expt time axis is in s
+        # if first time point not 0, eval at 0 s too (for normalisation to
+        # t=0 later on)
+        # TODO finish this implementation after testing 
+        # if float(self.data.x[0]) != 0.0:
+        #     t_eval = np.append(np.array([0]), self.data.x)
+    
+        # else:
+        t_eval = self.data.x
+    
+        model_output = integrate.solve_ivp(lambda t, y:self.simulate._dydt(t,y,
+                                                                 self.simulate.parameters,V,A,n_layers,layer_thick,
+                                                                         param_evolution_func=self.param_evolution_func,
+                                                                         additional_params=additional_params),
+                                                 (min(time_span),max(time_span)),
+                                                 Y0,t_eval=t_eval,method=ode_integrate_method)
+        
+        # should this update model output? yes because the Vt,At,thick_t is calculated from the 
+        # new model output each time
+        self.simulate.model_output = model_output
+    
+        if self.simulate.model.model_type.lower() == 'km-sub':
+            # collect surface concentrations
+            surf_conc_inds = [0]
+            for i in range(1, len(self.model.model_components)):
+                ind = i * n_layers + i
+                surf_conc_inds.append(ind)
+    
+            surf_concs = {}
+            # append to surf concs dict for each component
+            for ind, i in enumerate(surf_conc_inds):
+                surf_concs[f'{ind+1}'] = model_output.y.T[:,i]
+    
+            # bulk concentrations
+            bulk_concs = {}
+            for i in range(len(self.model.model_components)):
+                conc_output = model_output.y.T[:, i*n_layers+1+i:(i+1)*n_layers+i+1]
+    
+                bulk_concs[f'{i+1}'] = conc_output
+    
+            # get total no of molecules of component of interest
+    
+            bulk_num = bulk_concs[f'{self._fitting_component_no}'] * V
+            surf_num = surf_concs[f'{self._fitting_component_no}'] * A[0]
+            static_surf_num = np.zeros(len(surf_concs[f'{self._fitting_component_no}'])) # only applicable to km-gap (surf is static surf and sorption layer in km-sub)
+    
+            bulk_total_num = np.sum(bulk_num, axis=1)
+            total_number_molecules = bulk_total_num + surf_num + static_surf_num
+    
+            # use custom model y function if supplied
+            if self.custom_model_y_func is not None:
+                model_y = self.custom_model_y_func(bulk_concs,
+                                                   surf_concs, V, A)
+            else:
+                # the data is normalised, so model output will be normalised
+                model_y = total_number_molecules / total_number_molecules[0]
+    
+            # calculate the cost function
+    
+            cost_val = self.cost_func(model_y, weighted=self._weighted)
+    
+        elif self.simulate.model.model_type.lower() == 'km-gap':
+            if self._fitting_component_no is not None:
+                # REMEMBER division by A or V to get molec. cm-2 or cm-3 (km-gap)
+    
+                # calculate V_t and A_t at each time point
+    
+                V_t, A_t, layer_thick = self.simulate.calc_Vt_At_layer_thick()
+    
+                # get radius of the particle as fn of time
+                # rp_t = np.sum(layer_thick, axis=1)
+    
+                # collect surface concentrations
+                surf_conc_inds = []
+                for i in range(len(self.model.model_components)):
+                    cn = i + 1
+                    ind = (cn-1) * n_layers + 2 * (cn-1)
+                    surf_conc_inds.append(ind)
+    
+                surf_concs = {}
+                # append to surf concs dict for each component
+                for ind, i in enumerate(surf_conc_inds):
+                    surf_concs[f'{ind+1}'] = model_output.y.T[:,i] / A_t[:,0]
+    
+                # collect static surface concentrations
+                static_surf_conc_inds = []
+                for i in range(len(self.model.model_components)):
+                    cn = i + 1
+                    ind = (cn-1)*n_layers+2*(cn-1)+1
+                    static_surf_conc_inds.append(ind)
+    
+                static_surf_concs = {}
+                # append to surf concs dict for each component
+                for ind, i in enumerate(surf_conc_inds):
+                    static_surf_concs[f'{ind+1}'] = model_output.y.T[:,i] / A_t[:,0]
+    
+                # get bulk concentrations
+                bulk_concs = {}
+                for i in range(len(self.model.model_components)):
+                    cn = i + 1
+                    conc_output = model_output.y.T[:,(cn-1)*n_layers+2*(cn-1)+2:cn*n_layers+cn+(cn-1)+1] / V_t
+    
+                    bulk_concs[f'{i+1}'] = conc_output
+    
+                # self.surf_concs = surf_concs
+                # self.static_surf_concs = static_surf_concs
+                # self.bulk_concs = bulk_concs
+    
+                # get total no of molecules of component of interest
+    
+                bulk_num = bulk_concs[f'{self._fitting_component_no}'] * V_t
+                surf_num = surf_concs[f'{self._fitting_component_no}'] * A_t[:,0]
+                static_surf_num = static_surf_concs[f'{self._fitting_component_no}'] * A_t[:,0]
+    
+                bulk_total_num = np.sum(bulk_num, axis=1)
+                total_number_molecules = bulk_total_num + surf_num + static_surf_num
+    
+                # use custom model y function if supplied
+                if self.custom_model_y_func is not None:
+                    model_y = self.custom_model_y_func(bulk_concs,
+                                                       surf_concs,
+                                                       static_surf_concs,
+                                                       V_t, A_t)
+                else:
+                    # the data is normalised, so model output will be normalised
+                    model_y = total_number_molecules / total_number_molecules[0]
+    
+                # calculate the cost function
+    
+                cost_val = self.cost_func(model_y, weighted=self._weighted)
+    
+            # PARKED fitting to rp for now
+            # also fit the particle radius with custom cost function (cfunc)
+            # if fit_particle_radius:
+            #     print('\nFitting to particle radius or film thickness **CHECK UNITS**\n(should be in cm)\n')
+            #     # option to only fit to rp and not number of molecules
+            #     if type(component_no) == type(None):
+            #         norm_number_molecules = None
+            #     cost_val = self.cost_func(norm_number_molecules,rp_t)
+    
+        # print(cost_val)
+        return cost_val
 
     def fit(self, weighted=True, method='least_squares',
             component_no='1', n_workers=1,
-            popsize=15):
+            popsize=15, callback=None):
         '''
         Use either a local or global optimisation algorithm to fit the model
         to the data.
@@ -475,6 +682,16 @@ class Optimizer():
         popsize : int, optional
             The multiplyer used by the differential_evolution implementation in SciPy.
             The total population size of parameter sets in the algorithm is len(varying_parameters) * popsize.
+            
+        callback : func, optional
+            The callback function supplied to the differential_evolution implementation in SciPy.
+            The function is called in this way: 
+                
+                callback(xk, convergence=val)
+                
+                Where xk is the best solution found so far and val is the
+                fractional value of the population convergence. When val > 1,
+                the function halts. If callback returns True the minimisation is halted.
 
         returns
         ----------
@@ -490,6 +707,7 @@ class Optimizer():
         '''
 
         self._fitting_component_no = component_no
+        self._weighted = weighted
         sim = self.simulate
         param_evolution_func_extra_vary_params = self.param_evolution_func_extra_vary_params
 
@@ -518,11 +736,14 @@ class Optimizer():
         # account for extra varying params supplied to param_evolution_func
         # if they are required
         extra_vary_params_start_ind = None
+        self._extra_vary_params_start_ind = None  # this is for access within minimize_me func
+        
         if self.param_evolution_func is not None:
             # get the starting index of the varying_param_vals list supplied to
             # minimize_me
             if param_evolution_func_extra_vary_params is not None:
                 extra_vary_params_start_ind = len(varying_params)
+                self._extra_vary_params_start_ind = len(varying_params)
 
                 # now append the param_evolution_func_extra_params to varying_params
                 # only used in least_squares optimisation (requires an initial guess)
@@ -533,225 +754,20 @@ class Optimizer():
                     add_param_bounds.append(par.bounds) # for recreating Parameter object after optimisation
                     add_param_names.append(par.name)
 
-        def minimize_me(varying_param_vals, varying_param_keys,
-                        sim, component_no=component_no,
-                        extra_vary_params_start_ind=extra_vary_params_start_ind,
-                        ):
-            '''
-            The function to minimise during the fitting process.
-
-            Parameters
-            ----------
-            varying_param_vals : array-type
-                An array of varying model parameters to be optimised.
-
-            varying_param_keys : list
-                List of parameter dictionary keys corresponding to the parameter
-                represented in varying_param_vals.
-
-            sim : multilayerpy.simulate.Simulate
-                The simulate object to be optimised.
-
-            component_no : int, optional
-                The component number of the model component to fit to.
-                i.e. If the experimental data corresponds to component number 4,
-                fit to component_no = 4.
-
-            extra_vary_params_start_ind : int, optional
-                The starting index for the 'extra' varying parameters
-                (not included in the parameter dictionary) used in the parameter
-                evolution function.
-
-            fit_particle_radius : bool, optional
-                Whether or not to fit to particle radius data.
-
-            Returns
-            -------
-            cost_val : float
-                Value of the cost function.
-
-            '''
-
-            # unpack required params to run the model
-            n_layers = sim.run_params['n_layers']
-            V = sim.run_params['V']
-            A = sim.run_params['A']
-            n_time = sim.run_params['n_time']
-            rp = sim.run_params['rp']
-            time_span = sim.run_params['time_span']
-            ode_integrate_method = sim.run_params['ode_integrate_method']
-            layer_thick = sim.run_params['layer_thick']
-            Y0 = sim.run_params['Y0']
-
-            if extra_vary_params_start_ind is not None:
-                additional_params = varying_param_vals[extra_vary_params_start_ind:]
-            else:
-                additional_params = None
-
-            # update the simulate object parameters
-            for ind, param in enumerate(varying_param_keys):
-                sim.parameters[param].value = varying_param_vals[ind]
-
-            # import the model from the .py file created in the model building
-            # process
-            # model_import = importlib.import_module(f'{self.model.filename[:-3]}')
-
-            # define time interval
-            tspan = np.linspace(min(time_span),max(time_span),n_time)
-
-            # t_eval for comparing mod + expt at the same timepoints
-            # assuming expt time axis is in s
-            # if first time point not 0, eval at 0 s too (for normalisation to
-            # t=0 later on)
-            # TODO finish this implementation after testing 
-            # if float(self.data.x[0]) != 0.0:
-            #     t_eval = np.append(np.array([0]), self.data.x)
-
-            # else:
-            t_eval = self.data.x
-
-            model_output = integrate.solve_ivp(lambda t, y:sim._dydt(t,y,sim.parameters,V,A,n_layers,layer_thick,
-                                                                             param_evolution_func=self.param_evolution_func,
-                                                                             additional_params=additional_params),
-                                                     (min(time_span),max(time_span)),
-                                                     Y0,t_eval=t_eval,method=ode_integrate_method)
-
-            sim.model_output = model_output
-
-            if sim.model.model_type.lower() == 'km-sub':
-                # collect surface concentrations
-                surf_conc_inds = [0]
-                for i in range(1, len(self.model.model_components)):
-                    ind = i * n_layers + i
-                    surf_conc_inds.append(ind)
-
-                surf_concs = {}
-                # append to surf concs dict for each component
-                for ind, i in enumerate(surf_conc_inds):
-                    surf_concs[f'{ind+1}'] = model_output.y.T[:,i]
-
-                # bulk concentrations
-                bulk_concs = {}
-                for i in range(len(self.model.model_components)):
-                    conc_output = model_output.y.T[:, i*n_layers+1+i:(i+1)*n_layers+i+1]
-
-                    bulk_concs[f'{i+1}'] = conc_output
-
-                # get total no of molecules of component of interest
-
-                bulk_num = bulk_concs[f'{component_no}'] * V
-                surf_num = surf_concs[f'{component_no}'] * A[0]
-                static_surf_num = np.zeros(len(surf_concs[f'{component_no}'])) # only applicable to km-gap (surf is static surf and sorption layer in km-sub)
-
-                bulk_total_num = np.sum(bulk_num, axis=1)
-                total_number_molecules = bulk_total_num + surf_num + static_surf_num
-
-                # use custom model y function if supplied
-                if self.custom_model_y_func is not None:
-                    model_y = self.custom_model_y_func(bulk_concs,
-                                                       surf_concs, V, A)
-                else:
-                    # the data is normalised, so model output will be normalised
-                    model_y = total_number_molecules / total_number_molecules[0]
-
-                # calculate the cost function
-
-                cost_val = self.cost_func(model_y, weighted=weighted)
-
-            elif sim.model.model_type.lower() == 'km-gap':
-                if component_no is not None:
-                    # REMEMBER division by A or V to get molec. cm-2 or cm-3 (km-gap)
-
-                    # calculate V_t and A_t at each time point
-
-                    V_t, A_t, layer_thick = sim.calc_Vt_At_layer_thick()
-
-                    # get radius of the particle as fn of time
-                    rp_t = np.sum(layer_thick, axis=1)
-
-                    # collect surface concentrations
-                    surf_conc_inds = []
-                    for i in range(len(self.model.model_components)):
-                        cn = i + 1
-                        ind = (cn-1) * n_layers + 2 * (cn-1)
-                        surf_conc_inds.append(ind)
-
-                    surf_concs = {}
-                    # append to surf concs dict for each component
-                    for ind, i in enumerate(surf_conc_inds):
-                        surf_concs[f'{ind+1}'] = model_output.y.T[:,i] / A_t[:,0]
-
-                    # collect static surface concentrations
-                    static_surf_conc_inds = []
-                    for i in range(len(self.model.model_components)):
-                        cn = i + 1
-                        ind = (cn-1)*n_layers+2*(cn-1)+1
-                        static_surf_conc_inds.append(ind)
-
-                    static_surf_concs = {}
-                    # append to surf concs dict for each component
-                    for ind, i in enumerate(surf_conc_inds):
-                        static_surf_concs[f'{ind+1}'] = model_output.y.T[:,i] / A_t[:,0]
-
-                    # get bulk concentrations
-                    bulk_concs = {}
-                    for i in range(len(self.model.model_components)):
-                        cn = i + 1
-                        conc_output = model_output.y.T[:,(cn-1)*n_layers+2*(cn-1)+2:cn*n_layers+cn+(cn-1)+1] / V_t
-
-                        bulk_concs[f'{i+1}'] = conc_output
-
-                    # self.surf_concs = surf_concs
-                    # self.static_surf_concs = static_surf_concs
-                    # self.bulk_concs = bulk_concs
-
-                    # get total no of molecules of component of interest
-
-                    bulk_num = bulk_concs[f'{component_no}'] * V_t
-                    surf_num = surf_concs[f'{component_no}'] * A_t[:,0]
-                    static_surf_num = static_surf_concs[f'{component_no}'] * A_t[:,0]
-
-                    bulk_total_num = np.sum(bulk_num, axis=1)
-                    total_number_molecules = bulk_total_num + surf_num + static_surf_num
-
-                    # use custom model y function if supplied
-                    if self.custom_model_y_func is not None:
-                        model_y = self.custom_model_y_func(bulk_concs,
-                                                           surf_concs,
-                                                           static_surf_concs,
-                                                           V_t, A_t)
-                    else:
-                        # the data is normalised, so model output will be normalised
-                        model_y = total_number_molecules / total_number_molecules[0]
-
-                    # calculate the cost function
-
-                    cost_val = self.cost_func(model_y, weighted=weighted)
-
-                # PARKED fitting to rp for now
-                # also fit the particle radius with custom cost function (cfunc)
-                # if fit_particle_radius:
-                #     print('\nFitting to particle radius or film thickness **CHECK UNITS**\n(should be in cm)\n')
-                #     # option to only fit to rp and not number of molecules
-                #     if type(component_no) == type(None):
-                #         norm_number_molecules = None
-                #     cost_val = self.cost_func(norm_number_molecules,rp_t)
-
-            # print(cost_val)
-            return cost_val
+        # TODO minimize me removed from here
 
         if method == 'differential_evolution':
             print('\nOptimising using differential_evolution algorithm...\n')
-            result = differential_evolution(minimize_me, param_bounds,
-                                            (varying_param_keys, sim,
-                                            component_no),
+            result = differential_evolution(self._minimize_me, param_bounds,
+                                            (varying_param_keys,),
                                             disp=True,
-                                            workers=n_workers, popsize=popsize)
+                                            workers=n_workers, popsize=popsize,
+                                            callback=callback)
         elif method == 'least_squares':
             # print(varying_params)
             print('\nOptimising using least_squares Nelder-Mead algorithm...\n')
-            result = minimize(minimize_me, varying_params,
-                              args=(varying_param_keys, sim, component_no),
+            result = minimize(self._minimize_me, varying_params,
+                              args=(varying_param_keys,),
                               method='Nelder-Mead', bounds=param_bounds,
                               options={'disp': True, 'return_all': True})
 
