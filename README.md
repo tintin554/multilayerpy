@@ -1,4 +1,4 @@
-# MutilayerPy
+# MultilayerPy
 
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.6411188.svg)](https://doi.org/10.5281/zenodo.6411188)
 
@@ -15,6 +15,10 @@
 ## Overview
 MultilayerPy is a Python-based framework for constructing, running and optimising kinetic multi-layer models of aerosol particles and films.
 In this repository you will find the core MultilayerPy package along with reference documentation (html files) and a directory of tutorial Jupyter notebooks to get you started. 
+
+Here is an [introductory video explaining the package and its installation](https://www.youtube.com/watch?v=3BXoENXfueE). 
+
+There is also a [crash course](https://www.youtube.com/watch?v=ErxTOz0NLhw) video which takes the user through the crash course notebook. 
 
 The framework is summarised in the figure below:
 
@@ -33,7 +37,7 @@ A more detailed description of how MultilayerPy works is outlined in the referen
 ## Installation
 There are currently three ways of installing MultilayerPy:
 
-#### 1) A `pip` install
+#### 1) `pip` install
 Running `pip install multilayerpy` in your terminal window will download and build MultilayerPy in your python environment, enabling you to import the package without being in the source code directory. This is the most straightforward method. It does not include any of the tutorial notebooks and data, which need to be downloaded separately from the GitHub repository or Zeondo archive. 
 
 Ensure that you have the correct packages installed as listed below in the dependencies. The standard Anaconda python distribution should work fine with this method of installation. 
@@ -92,4 +96,8 @@ Adam Milsom (University of Birmingham): a.milsom.2@bham.ac.uk
 Suggestions are very welcome!
 
 ## Acknowledgement and citation
-We would greatly appreciate citation of the description paper ([discussion paper here](https://doi.org/10.5194/egusphere-2022-143)) and source code (see beginning of this README) if MultilayerPy was used in your study. 
+We would greatly appreciate citation of the description paper ([description paper here](https://doi.org/10.5194/gmd-15-7139-2022)) and source code (see beginning of this README) if MultilayerPy was used in your study. 
+
+The citation is:
+
+`A. Milsom, A. Lees, A. M. Squires and C. Pfrang, "MultilayerPy (v1.0): a Python-based framework for building, running and optimising kinetic multi-layer models of aerosols and films", Geosci. Model Dev., 15, 7139–7151, 2022`
