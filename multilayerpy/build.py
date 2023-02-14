@@ -1041,7 +1041,8 @@ class ModelBuilder():
                 if mod_type.lower() == 'km-gap':
                     ka_str = f'\n    ka_{comp_no} = alpha_s_{comp_no} * w_{comp_no} / 4'
                     kd_str = f'\n    kd_{comp_no} = 1 / Td_{comp_no}'
-                    Zss_eq_str = f'\n    Zss_eq_{comp_no} = (ka_{comp_no}/kd_{comp_no}) * Zgs_{comp_no}'
+                    # TODO make sure this change below makes physical sense
+                    Zss_eq_str = f'\n    Zss_eq_{comp_no} = delta_{comp_no}**2'
 
                     Zg_eq_str = f'\n    Zg_eq_{comp_no} = (p_{comp_no} * Na) / (R_cm3_units * T)'
 
