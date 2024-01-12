@@ -18,6 +18,8 @@ In this repository you will find the core MultilayerPy package along with refere
 
 Here is an [introductory video explaining the package and its installation](https://www.youtube.com/watch?v=3BXoENXfueE). 
 
+[![Here is the live webinar that walks you through using the package.](https://img.youtube.com/vi/6m_v1M60PwQ/maxresdefault.jpg)](https://youtu.be/6m_v1M60PwQ)
+
 There is also a [crash course](https://www.youtube.com/watch?v=ErxTOz0NLhw) video which takes the user through the crash course notebook. 
 
 The framework is summarised in the figure below:
@@ -91,7 +93,7 @@ In order for this project to progress, input from the community is vital. Please
 
 Please send general feedback and suggestions to the package creator using these details:
 
-Adam Milsom (University of Birmingham): a.milsom.2@bham.ac.uk
+Adam Milsom: multilayerpy@gmail.com
 
 Suggestions are very welcome!
 
