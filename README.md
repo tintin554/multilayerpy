@@ -18,7 +18,8 @@ In this repository you will find the core MultilayerPy package along with refere
 
 Here is an [introductory video explaining the package and its installation](https://www.youtube.com/watch?v=3BXoENXfueE). 
 
-[![Here is the live webinar that walks you through using the package.](https://img.youtube.com/vi/6m_v1M60PwQ/maxresdefault.jpg)](https://youtu.be/6m_v1M60PwQ)
+Below is the live webinar that walks you through using the package.
+[![Here is the live webinar that walks you through using the package.](https://img.youtube.com/vi/6m_v1M60PwQ/hqdefault.jpg)](https://youtu.be/6m_v1M60PwQ)
 
 There is also a [crash course](https://www.youtube.com/watch?v=ErxTOz0NLhw) video which takes the user through the crash course notebook. 
 
