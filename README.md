@@ -92,12 +92,6 @@ If you have installed the package using `pip` the notebook can be run from anywh
 ## Contributing
 In order for this project to progress, input from the community is vital. Please use the issues section of this repository to flag any issues. Forking this repository and submitting pull requests for discussion is highly encouraged as this is the best way to develop and improve this package. 
 
-Please send general feedback and suggestions to the package creator using these details:
-
-Adam Milsom: multilayerpy@gmail.com
-
-Suggestions are very welcome!
-
 ## Acknowledgement and citation
 We would greatly appreciate citation of the description paper ([description paper here](https://doi.org/10.5194/gmd-15-7139-2022)) and source code (see beginning of this README) if MultilayerPy was used in your study. 
 
